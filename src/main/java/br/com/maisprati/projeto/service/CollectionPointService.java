@@ -1,29 +1,23 @@
 package br.com.maisprati.projeto.service;
 
+import br.com.maisprati.projeto.dto.projection.CollectionPointDistanceProjectionDTO;
 import br.com.maisprati.projeto.dto.request.CollectionPointCreateRequestDTO;
 import br.com.maisprati.projeto.dto.request.CollectionPointUpdateDTO;
 import br.com.maisprati.projeto.dto.request.OperatorCreateRequestDTO;
-import br.com.maisprati.projeto.dto.response.CollectionPointDistanceResponseDTO;
-import br.com.maisprati.projeto.dto.response.CollectionPointResponseDTO;
-import br.com.maisprati.projeto.dto.response.CollectionPointSummaryResponseDTO;
-import br.com.maisprati.projeto.dto.response.CollectionPointUsersResponseDTO;
-import br.com.maisprati.projeto.dto.response.UserResponseDTO;
-import br.com.maisprati.projeto.dto.response.UserSummaryResponseDTO;
+import br.com.maisprati.projeto.dto.response.*;
 import br.com.maisprati.projeto.mapper.CollectionPointMapper;
-import br.com.maisprati.projeto.model.entity.Address;
-import br.com.maisprati.projeto.model.entity.ClothType;
-import br.com.maisprati.projeto.model.entity.CollectionPoint;
-import br.com.maisprati.projeto.model.entity.OperatingHour;
-import br.com.maisprati.projeto.model.entity.User;
+import br.com.maisprati.projeto.model.entity.*;
 import br.com.maisprati.projeto.model.enums.CollectionPointStatus;
 import br.com.maisprati.projeto.model.enums.Role;
 import br.com.maisprati.projeto.model.enums.State;
 import br.com.maisprati.projeto.repository.ClothTypeRepository;
+import br.com.maisprati.projeto.repository.CollectionPointPendingUpdateRepository;
 import br.com.maisprati.projeto.repository.CollectionPointRepository;
 import br.com.maisprati.projeto.repository.UserRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -32,10 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,54 +40,51 @@ public class CollectionPointService {
         private static final BigDecimal MAX_LONGITUDE = new BigDecimal("180.0");
 
         private final CollectionPointRepository collectionPointRepository;
+        private final CollectionPointPendingUpdateRepository pendingUpdateRepository;
         private final ClothTypeRepository clothTypeRepository;
         private final UserRepository userRepository;
-        private final RegisterUserService registerUserService;
-        private final UserValidationService userValidationService;
-
         private final CollectionPointMapper collectionPointMapper;
 
+        private final ObjectMapper objectMapper = new ObjectMapper();
+
         @Transactional
-        public CollectionPointResponseDTO createCollectionPoint(CollectionPointCreateRequestDTO dto,
-                        String ownerEmail) {
+        public CollectionPointResponseDTO createCollectionPoint(CollectionPointCreateRequestDTO dto, String ownerEmail) {
                 User owner = userRepository.findByEmail(ownerEmail)
-                                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
+                        .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
 
                 List<ClothType> clothTypes = clothTypeRepository.findAllById(dto.getClothTypeIds());
                 if (clothTypes.isEmpty()) {
-                        throw new IllegalArgumentException(
-                                        "Informe ao menos um tipo de tecido válido cadastrado no sistema.");
+                        throw new IllegalArgumentException("Informe ao menos um tipo de tecido válido cadastrado no sistema.");
                 }
 
                 if (clothTypes.size() != dto.getClothTypeIds().size()) {
-                        throw new IllegalArgumentException(
-                                        "Um ou mais tipos de tecidos informados não foram encontrados.");
+                        throw new IllegalArgumentException("Um ou mais tipos de tecidos informados não foram encontrados.");
                 }
 
                 Address address = Address.builder()
-                                .street(dto.getAddress().getStreet().trim().toUpperCase(Locale.ROOT))
-                                .number(dto.getAddress().getNumber().trim().toUpperCase(Locale.ROOT))
-                                .complement(dto.getAddress().getComplement() != null
-                                                ? dto.getAddress().getComplement().trim().toUpperCase(Locale.ROOT)
-                                                : null)
-                                .neighborhood(dto.getAddress().getNeighborhood().trim().toUpperCase(Locale.ROOT))
-                                .city(dto.getAddress().getCity().trim().toUpperCase(Locale.ROOT))
-                                .state(State.valueOf(dto.getAddress().getState().trim().toUpperCase()))
-                                .country(dto.getAddress().getCountry().trim().toUpperCase(Locale.ROOT))
-                                .zipCode(dto.getAddress().getZipCode().trim())
-                                .latitude(dto.getLatitude())
-                                .longitude(dto.getLongitude())
-                                .build();
+                        .street(dto.getAddress().getStreet().trim().toUpperCase(Locale.ROOT))
+                        .number(dto.getAddress().getNumber().trim().toUpperCase(Locale.ROOT))
+                        .complement(dto.getAddress().getComplement() != null
+                                ? dto.getAddress().getComplement().trim().toUpperCase(Locale.ROOT)
+                                : null)
+                        .neighborhood(dto.getAddress().getNeighborhood().trim().toUpperCase(Locale.ROOT))
+                        .city(dto.getAddress().getCity().trim().toUpperCase(Locale.ROOT))
+                        .state(State.valueOf(dto.getAddress().getState().trim().toUpperCase()))
+                        .country(dto.getAddress().getCountry().trim().toUpperCase(Locale.ROOT))
+                        .zipCode(dto.getAddress().getZipCode().trim())
+                        .latitude(dto.getLatitude())
+                        .longitude(dto.getLongitude())
+                        .build();
 
                 CollectionPoint collectionPoint = CollectionPoint.builder()
-                                .name(dto.getName().trim().toUpperCase(Locale.ROOT))
-                                .address(address)
-                                .pointPictureUrl((dto.getImageUrl()) != null ? dto.getImageUrl().trim():null)
-                                .status(CollectionPointStatus.PENDING)
-                                .managers(new HashSet<>())
-                                .clothTypes(new HashSet<>())
-                                .operatingHours(new HashSet<>())
-                                .build();
+                        .name(dto.getName().trim().toUpperCase(Locale.ROOT))
+                        .address(address)
+                        .pointPictureUrl((dto.getImageUrl()) != null ? dto.getImageUrl().trim() : null)
+                        .status(CollectionPointStatus.PENDING)
+                        .managers(new HashSet<>())
+                        .clothTypes(new HashSet<>())
+                        .operatingHours(new HashSet<>())
+                        .build();
 
                 collectionPoint.getManagers().add(owner);
                 collectionPoint.getClothTypes().addAll(clothTypes);
@@ -111,13 +100,13 @@ public class CollectionPointService {
 
                         collectionPoint.getOperatingHours().addAll(operatingHours);
                 }
+                collectionPoint.setHasPendingUpdate(false);
+                collectionPoint.setStatus(CollectionPointStatus.PENDING); 
 
                 CollectionPoint saved = collectionPointRepository.save(collectionPoint);
-
                 return mapToDTO(saved);
         }
 
-        // Status do ponto de coleta
         @Transactional(readOnly = true)
         public Page<CollectionPointResponseDTO> findPendingCollectionPoints(Pageable pageable) {
                 return collectionPointRepository.findByStatus(CollectionPointStatus.PENDING, pageable)
@@ -129,27 +118,21 @@ public class CollectionPointService {
                 CollectionPoint point = collectionPointRepository.findById(id)
                         .orElseThrow(() -> new EntityNotFoundException("Ponto de coleta não encontrado com o ID: " + id));
 
-                // Transição de Estado: PENDING -> ACTIVE
                 point.setStatus(CollectionPointStatus.ACTIVE);
-
                 CollectionPoint updatedPoint = collectionPointRepository.save(point);
                 return mapToDTO(updatedPoint);
         }
 
-        // Rejeição / Suspensão do ponto pelo Administrador
         @Transactional
         public CollectionPointResponseDTO rejectCollectionPoint(Long id) {
                 CollectionPoint point = collectionPointRepository.findById(id)
                         .orElseThrow(() -> new EntityNotFoundException("Ponto de coleta não encontrado com o ID: " + id));
 
-                // Transição de Estado: PENDING -> SUSPENDED
                 point.setStatus(CollectionPointStatus.SUSPENDED);
-
                 CollectionPoint updatedPoint = collectionPointRepository.save(point);
                 return mapToDTO(updatedPoint);
         }
 
-        //Pausar
         @Transactional
         public CollectionPointResponseDTO pauseCollectionPoint(Long pointId, String username) {
                 CollectionPoint point = collectionPointRepository.findById(pointId)
@@ -158,14 +141,10 @@ public class CollectionPointService {
                 User currentUser = userRepository.findByEmail(username)
                         .orElseThrow(() -> new EntityNotFoundException("Usuário autenticado não encontrado."));
 
-                // Verifica user e admin
                 boolean isAdmin = currentUser.getRole().contains(Role.ADMIN);
-
-                // Verifica user e gerente
                 boolean isManager = point.getManagers().stream()
                         .anyMatch(manager -> manager.getId().equals(currentUser.getId()));
 
-                // Se não for nem ADMIN ou Gerente do ponto, lanca 403
                 if (!isAdmin && !isManager) {
                         throw new AccessDeniedException("Você não possui autorização para acessar este recurso.");
                 }
@@ -176,8 +155,6 @@ public class CollectionPointService {
                 return mapToDTO(updatedPoint);
         }
 
-
-        // Consulta pública para o mapa - Retorna apenas pontos com status ACTIVE
         @Transactional(readOnly = true)
         public Page<CollectionPointResponseDTO> findPublicApprovedPoints(Pageable pageable) {
                 return collectionPointRepository.findByStatus(CollectionPointStatus.ACTIVE, pageable)
@@ -187,86 +164,220 @@ public class CollectionPointService {
         @Transactional(readOnly = true)
         public CollectionPointResponseDTO getCollectionPointById(Long id) {
                 CollectionPoint collectionPoint = collectionPointRepository.findById(id)
-                                .orElseThrow(() -> new IllegalArgumentException("Ponto de coleta não encontrado."));
+                        .orElseThrow(() -> new IllegalArgumentException("Ponto de coleta não encontrado."));
                 return mapToDTO(collectionPoint);
         }
 
         @Transactional(readOnly = true)
         public CollectionPointResponseDTO getCollectionPointByIdAndStatusActive(Long id) {
                 CollectionPoint collectionPoint = collectionPointRepository.findById(id)
-                                .filter(point -> point.getStatus() == CollectionPointStatus.ACTIVE)
-                                .orElseThrow(() -> new IllegalArgumentException("Ponto de coleta não encontrado ou indisponível."));
+                        .filter(point -> point.getStatus() == CollectionPointStatus.ACTIVE)
+                        .orElseThrow(() -> new IllegalArgumentException("Ponto de coleta não encontrado ou indisponível."));
                 return mapToDTO(collectionPoint);
         }
 
+        @Transactional(readOnly = true)
         public Page<CollectionPointSummaryResponseDTO> findAll(Pageable pageable) {
-                return collectionPointRepository.findAll(pageable)
-                                .map(CollectionPointSummaryResponseDTO::new);
+                return bindClothTypesToSummaryResponseDTO(collectionPointRepository.findAll(pageable));
+        }
+
+        private Page<CollectionPointSummaryResponseDTO> bindClothTypesToSummaryResponseDTO(Page<CollectionPoint> page) {
+                if (page.isEmpty()) {
+                        return Page.empty(page.getPageable());
+                }
+
+                List<Long> ids = page.getContent().stream()
+                        .map(CollectionPoint::getId)
+                        .toList();
+
+                List<Object[]> clothTypesData = collectionPointRepository.findClothTypesByCollectionPointIds(ids);
+
+                Map<Long, List<String>> clothTypesMap = clothTypesData.stream()
+                        .collect(Collectors.groupingBy(
+                                row -> (Long) row[0],
+                                Collectors.mapping(row -> (String) row[1], Collectors.toList())
+                        ));
+
+                return page.map(summary -> {
+                        List<String> clothTypesNames = clothTypesMap.getOrDefault(summary.getId(), List.of());
+                        return new CollectionPointSummaryResponseDTO(summary, clothTypesNames);
+                });
         }
 
         @Transactional(readOnly = true)
         public Page<CollectionPointDistanceResponseDTO> findNearby(
-                        BigDecimal userLat,
-                        BigDecimal userLng,
-                        Double radiusKm,
-                        List<Long> clothTypeIds,
-                        Pageable pageable) {
+                BigDecimal userLat,
+                BigDecimal userLng,
+                Double radiusKm,
+                List<Long> clothTypeIds,
+                Pageable pageable) {
 
                 if (userLat.compareTo(MIN_LATITUDE) < 0 || userLat.compareTo(MAX_LATITUDE) > 0
-                                || userLng.compareTo(MIN_LONGITUDE) < 0 || userLng.compareTo(MAX_LONGITUDE) > 0) {
+                        || userLng.compareTo(MIN_LONGITUDE) < 0 || userLng.compareTo(MAX_LONGITUDE) > 0) {
                         throw new IllegalArgumentException("Coordenadas geográficas inválidas.");
                 }
 
                 BigDecimal effectiveRadius = (radiusKm != null && radiusKm > 0.0) ? new BigDecimal(radiusKm)
-                                : new BigDecimal("15.0"); // Default 15km
+                        : new BigDecimal("15.0");
 
-                List<Long> effectiveClothTypeIds = (clothTypeIds != null && !clothTypeIds.isEmpty()) 
-                        ? clothTypeIds 
-                        : null;
+                if (clothTypeIds == null || clothTypeIds.isEmpty()) {
+                        Page<CollectionPointDistanceProjectionDTO> projections = collectionPointRepository
+                                .findNearbyNoClothTypes(userLat, userLng, effectiveRadius, pageable);
+                        return bindClothTypesToResponseDTO(projections);
+                } else {
+                        Page<CollectionPointDistanceProjectionDTO> projections = collectionPointRepository
+                                .findNearbyWithClothTypes(userLat, userLng, effectiveRadius, clothTypeIds, pageable);
+                        return bindClothTypesToResponseDTO(projections);
+                }
+        }
 
-                return collectionPointRepository.findNearby(userLat, userLng, effectiveRadius, effectiveClothTypeIds, pageable)
-                                .map(CollectionPointDistanceResponseDTO::new);
+
+        private Page<CollectionPointDistanceResponseDTO> bindClothTypesToResponseDTO(Page<CollectionPointDistanceProjectionDTO> page) {
+                if (page.isEmpty()) {
+                        return Page.empty(page.getPageable());
+                }
+
+                // Coleta apenas os IDs dos pontos de coleta retornados na página específica
+                List<Long> ids = page.getContent().stream()
+                        .map(CollectionPointDistanceProjectionDTO::getId)
+                        .toList();
+
+                // Faz a consulta em lote
+                List<Object[]> clothTypesData = collectionPointRepository.findClothTypesByCollectionPointIds(ids);
+
+                // Agrupa o resultado em um Map<IdDoPonto, List<NomeDoTecido>>
+                Map<Long, List<String>> clothTypesMap = clothTypesData.stream()
+                        .collect(Collectors.groupingBy(
+                                row -> (Long) row[0],
+                                Collectors.mapping(row -> (String) row[1], Collectors.toList())
+                        ));
+
+                return page.map(projection -> {
+                        List<String> clothTypesNames = clothTypesMap.getOrDefault(projection.getId(), List.of());
+                        return new CollectionPointDistanceResponseDTO(projection, clothTypesNames);
+
+                });
         }
 
         @Transactional
-        public CollectionPointResponseDTO updateCollectionPoint(Long id, CollectionPointUpdateDTO dto) {
-        CollectionPoint collectionPoint = collectionPointRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Ponto de coleta não encontrado."));
+        public CollectionPointResponseDTO updateCollectionPoint(Long id, CollectionPointUpdateDTO requestDTO, String username) {
+                CollectionPoint point = collectionPointRepository.findById(id)
+                        .orElseThrow(() -> new EntityNotFoundException("Ponto de coleta não encontrado."));
 
-        collectionPointMapper.updateEntityFromDto(dto, collectionPoint);
+                User currentUser = userRepository.findByEmail(username)
+                        .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
 
-         if (dto.address() != null && collectionPoint.getAddress() != null) {
-                collectionPointMapper.updateAddressFromDto(dto.address(), collectionPoint.getAddress());
-        }
+                boolean isAdmin = currentUser.getRole().contains(Role.ADMIN);
+                boolean isManager = point.getManagers().stream().anyMatch(m -> m.getId().equals(currentUser.getId()));
 
-        if (dto.clothTypeIds() != null && !dto.clothTypeIds().isEmpty()) {
-                List<ClothType> clothTypes = clothTypeRepository.findAllById(dto.clothTypeIds());
-                if (clothTypes.size() != dto.clothTypeIds().size()) {
-                throw new IllegalArgumentException("Um ou mais tipos de tecidos informados não foram encontrados.");
+                if (!isAdmin && !isManager) {
+                        throw new AccessDeniedException("Você não tem permissão para editar este ponto de coleta.");
                 }
-                collectionPoint.getClothTypes().clear();
-                collectionPoint.getClothTypes().addAll(clothTypes);
+
+                // gerente ou admin geram o update.
+                try {
+                        String payloadJson = objectMapper.writeValueAsString(requestDTO);
+
+                        CollectionPointPendingUpdate pendingUpdate = pendingUpdateRepository.findByCollectionPointId(point.getId())
+                                .orElse(CollectionPointPendingUpdate.builder().collectionPoint(point).build());
+
+                        pendingUpdate.setUpdatePayloadJson(payloadJson);
+                        pendingUpdate.setRequestedBy(currentUser);
+                        pendingUpdate.setRequestedAt(LocalDateTime.now());
+                        pendingUpdateRepository.save(pendingUpdate);
+
+                        // Muda a flag para true, mas não sobe os dados editados
+                        point.setHasPendingUpdate(true);
+                        CollectionPoint savedPoint = collectionPointRepository.save(point);
+                        collectionPointRepository.save(point);
+
+                        return mapToDTO(savedPoint);
+                } catch (JsonProcessingException e) {
+                        throw new RuntimeException("Erro ao processar os dados da atualização.", e);
+                }
         }
 
-        if (dto.operatingHour() != null && !dto.operatingHour().isEmpty()) {
-                collectionPoint.getOperatingHours().clear();
-                dto.operatingHour().stream()
-                        .map(collectionPointMapper::toOperatingHourEntity)
-                        .forEach(collectionPoint.getOperatingHours()::add);
+        @Transactional(readOnly = true)
+        public Page<PendingUpdateResponseDTO> listPendingUpdates(Pageable pageable) {
+                return pendingUpdateRepository.findAll(pageable).map(pending -> {
+                        try {
+                                CollectionPointUpdateDTO proposed = objectMapper.readValue(pending.getUpdatePayloadJson(), CollectionPointUpdateDTO.class);
+                                return PendingUpdateResponseDTO.builder()
+                                        .id(pending.getId())
+                                        .currentPoint(mapToDTO(pending.getCollectionPoint()))
+                                        .proposedChanges(proposed)
+                                        .requestedByEmail(pending.getRequestedBy().getEmail())
+                                        .requestedAt(pending.getRequestedAt())
+                                        .build();
+                        } catch (JsonProcessingException e) {
+                                throw new RuntimeException("Erro ao ler dados pendentes.", e);
+                        }
+                });
         }
 
-        CollectionPoint saved = collectionPointRepository.save(collectionPoint);
-        return mapToDTO(saved);
+        @Transactional
+        public CollectionPointResponseDTO approvePendingUpdate(Long collectionPointId) {
+                CollectionPointPendingUpdate pending = pendingUpdateRepository.findByCollectionPointId(collectionPointId)
+                        .orElseThrow(() -> new EntityNotFoundException("Nenhuma edição pendente para este ponto."));
+
+                try {
+                        CollectionPointUpdateDTO proposedDTO = objectMapper.readValue(pending.getUpdatePayloadJson(), CollectionPointUpdateDTO.class);
+                        CollectionPoint point = pending.getCollectionPoint();
+
+                        applyUpdatesToEntity(point, proposedDTO);
+                        point.setHasPendingUpdate(false);
+
+                        collectionPointRepository.save(point);
+                        pendingUpdateRepository.delete(pending);
+
+                        return mapToDTO(point);
+                } catch (JsonProcessingException e) {
+                        throw new RuntimeException("Erro ao processar os dados pendentes para aprovação.", e);
+                }
         }
 
+        @Transactional
+        public void rejectPendingUpdate(Long collectionPointId) {
+                CollectionPointPendingUpdate pending = pendingUpdateRepository.findByCollectionPointId(collectionPointId)
+                        .orElseThrow(() -> new EntityNotFoundException("Nenhuma edição pendente para este ponto."));
+
+                CollectionPoint point = pending.getCollectionPoint();
+                point.setHasPendingUpdate(false);
+                collectionPointRepository.save(point);
+                pendingUpdateRepository.delete(pending);
+        }
+
+        private void applyUpdatesToEntity(CollectionPoint point, CollectionPointUpdateDTO dto) {
+                collectionPointMapper.updateEntityFromDto(dto, point);
+
+                if (dto.address() != null && point.getAddress() != null) {
+                        collectionPointMapper.updateAddressFromDto(dto.address(), point.getAddress());
+                }
+
+                if (dto.clothTypeIds() != null && !dto.clothTypeIds().isEmpty()) {
+                        List<ClothType> clothTypes = clothTypeRepository.findAllById(dto.clothTypeIds());
+                        if (clothTypes.size() != dto.clothTypeIds().size()) {
+                                throw new IllegalArgumentException("Um ou mais tipos de tecidos informados não foram encontrados.");
+                        }
+                        point.getClothTypes().clear();
+                        point.getClothTypes().addAll(clothTypes);
+                }
+
+                if (dto.operatingHour() != null && !dto.operatingHour().isEmpty()) {
+                        point.getOperatingHours().clear();
+                        dto.operatingHour().stream()
+                                .map(collectionPointMapper::toOperatingHourEntity)
+                                .forEach(point.getOperatingHours()::add);
+                }
+        }
 
         @Transactional
         public CollectionPointUsersResponseDTO addOperatorToCollectionPoint(Long id, OperatorCreateRequestDTO operator, String managerEmail) {
                 CollectionPoint collectionPoint = collectionPointRepository.findById(id)
-                                .orElseThrow(() -> new IllegalArgumentException("Ponto de coleta não encontrado."));
+                        .orElseThrow(() -> new IllegalArgumentException("Ponto de coleta não encontrado."));
 
                 User manager = userRepository.findByEmail(managerEmail)
-                                .orElseThrow(() -> new IllegalArgumentException("Gerente não encontrado."));
+                        .orElseThrow(() -> new IllegalArgumentException("Gerente não encontrado."));
 
                 if (!collectionPoint.getManagers().contains(manager)) {
                         throw new BadCredentialsException("Você não possui permissão para adicionar operadores a este ponto de coleta.");
@@ -275,7 +386,7 @@ public class CollectionPointService {
                 String cleanDocument = operator.document().replaceAll("\\D", "");
 
                 User user = userRepository.findByDocument(cleanDocument)
-                                .orElseThrow(() -> new EntityNotFoundException("Operador não encontrado."));
+                        .orElseThrow(() -> new IllegalArgumentException("Operador não encontrado."));
 
                 if(user.getRole().stream().noneMatch(role -> role.equals("ROLE_PONTO_COLETA_OPERADOR"))) {
                         user.getRole().add(Role.PONTO_COLETA_OPERADOR);
@@ -283,72 +394,93 @@ public class CollectionPointService {
 
                 collectionPoint.getOperators().add(user);
                 CollectionPoint saved = collectionPointRepository.save(collectionPoint);
+                List<String> clothTypesNames = saved.getClothTypes().stream()
+                        .map(ClothType::getName)
+                        .collect(Collectors.toList());
                 return new CollectionPointUsersResponseDTO(
-                                new CollectionPointSummaryResponseDTO(saved),
-                                saved.getManagers().stream().map(UserSummaryResponseDTO::new).collect(Collectors.toSet()),
-                                saved.getOperators().stream().map(UserSummaryResponseDTO::new).collect(Collectors.toSet())
+                        new CollectionPointSummaryResponseDTO(saved, clothTypesNames),
+                        saved.getManagers().stream().map(UserSummaryResponseDTO::new).collect(Collectors.toSet()),
+                        saved.getOperators().stream().map(UserSummaryResponseDTO::new).collect(Collectors.toSet())
                 );
         }
 
+        @Transactional(readOnly = true)
         public CollectionPointUsersResponseDTO getOperatorsByCollectionPointId(Long id, String managerEmail) {
                 CollectionPoint collectionPoint = collectionPointRepository.findById(id)
-                                .orElseThrow(() -> new IllegalArgumentException("Ponto de coleta não encontrado."));
+                        .orElseThrow(() -> new IllegalArgumentException("Ponto de coleta não encontrado."));
 
                 collectionPoint.getManagers().stream()
-                                .filter(manager -> manager.getEmail().equals(managerEmail))
-                                .findFirst()
-                                .orElseThrow(() -> new BadCredentialsException("Você não possui permissão para visualizar os operadores deste ponto de coleta."));                
-
+                        .filter(manager -> manager.getEmail().equals(managerEmail))
+                        .findFirst()
+                        .orElseThrow(() -> new BadCredentialsException("Você não possui permissão para visualizar os operadores deste ponto de coleta."));
 
                 Set<UserSummaryResponseDTO> managers = collectionPoint.getManagers().stream()
-                                .map(UserSummaryResponseDTO::new)
-                                .collect(Collectors.toSet());
+                        .map(UserSummaryResponseDTO::new)
+                        .collect(Collectors.toSet());
 
                 Set<UserSummaryResponseDTO> operators = collectionPoint.getOperators().stream()
-                                .map(UserSummaryResponseDTO::new)
-                                .collect(Collectors.toSet());
+                        .map(UserSummaryResponseDTO::new)
+                        .collect(Collectors.toSet());
 
-                CollectionPointSummaryResponseDTO collectionPointSummary = new CollectionPointSummaryResponseDTO(collectionPoint);
+                List<String> clothTypesNames = collectionPoint.getClothTypes().stream()
+                        .map(ClothType::getName)
+                        .collect(Collectors.toList());
 
-                
+                CollectionPointSummaryResponseDTO collectionPointSummary = new CollectionPointSummaryResponseDTO(collectionPoint, clothTypesNames);
+
                 return new CollectionPointUsersResponseDTO(collectionPointSummary, managers, operators);
+        }
+
+        @Transactional(readOnly = true)
+        public Set<AssociationResponseDTO> getCollectionPointsByUserManager(User user) {
+                Set<CollectionPoint> managedPoints = collectionPointRepository.findByManagersContainingAndStatusIn(user, Set.of(CollectionPointStatus.ACTIVE, CollectionPointStatus.PENDING));
+                return managedPoints.stream()
+                        .map(AssociationResponseDTO::new)
+                        .collect(Collectors.toSet());
+        }
+
+        @Transactional(readOnly = true)
+        public Set<AssociationResponseDTO> getCollectionPointsByUserOperator(User user) {
+                Set<CollectionPoint> operatedPoints = collectionPointRepository.findByOperatorsContainingAndStatusIn(user, Set.of(CollectionPointStatus.ACTIVE, CollectionPointStatus.PENDING));
+                return operatedPoints.stream()
+                        .map(AssociationResponseDTO::new)
+                        .collect(Collectors.toSet());
         }
 
         private CollectionPointResponseDTO mapToDTO(CollectionPoint entity) {
                 var addr = entity.getAddress();
 
                 return CollectionPointResponseDTO.builder()
-                                .id(entity.getId())
-                                .name(entity.getName())
-                                .status(entity.getStatus())
-                                .pointPictureUrl(entity.getPointPictureUrl())
-                                .address(CollectionPointResponseDTO.AddressResponseDTO.builder()
-                                                .street(addr.getStreet())
-                                                .number(addr.getNumber())
-                                                .complement(addr.getComplement())
-                                                .neighborhood(addr.getNeighborhood())
-                                                .city(addr.getCity())
-                                                .state(addr.getState().name())
-                                                .country(addr.getCountry())
-                                                .zipCode(addr.getZipCode())
-                                                .latitude(addr.getLatitude())
-                                                .longitude(addr.getLongitude())
+                        .id(entity.getId())
+                        .name(entity.getName())
+                        .status(entity.getStatus())
+                        .hasPendingUpdate(entity.isHasPendingUpdate())
+                        .pointPictureUrl(entity.getPointPictureUrl())
+                        .address(CollectionPointResponseDTO.AddressResponseDTO.builder()
+                                .street(addr.getStreet())
+                                .number(addr.getNumber())
+                                .complement(addr.getComplement())
+                                .neighborhood(addr.getNeighborhood())
+                                .city(addr.getCity())
+                                .state(addr.getState().name())
+                                .country(addr.getCountry())
+                                .zipCode(addr.getZipCode())
+                                .latitude(addr.getLatitude())
+                                .longitude(addr.getLongitude())
+                                .build())
+                        .acceptedClothTypes(
+                                entity.getClothTypes().stream()
+                                        .map(ClothType::getName)
+                                        .collect(Collectors.toSet()))
+                        .operatingHours(
+                                entity.getOperatingHours().stream()
+                                        .map(h -> CollectionPointResponseDTO.OperatingHourResponseDTO
+                                                .builder()
+                                                .dayOfWeek(h.getDayOfWeek().name())
+                                                .openingTime(h.getOpeningTime().toString())
+                                                .closingTime(h.getClosingTime().toString())
                                                 .build())
-                                .acceptedClothTypes(
-                                                entity.getClothTypes().stream()
-                                                                .map(ClothType::getName)
-                                                                .collect(Collectors.toSet()))
-                                .operatingHours(
-                                                entity.getOperatingHours().stream()
-                                                                .map(h -> CollectionPointResponseDTO.OperatingHourResponseDTO
-                                                                                .builder()
-                                                                                .dayOfWeek(h.getDayOfWeek().name())
-                                                                                .openingTime(h.getOpeningTime()
-                                                                                                .toString())
-                                                                                .closingTime(h.getClosingTime()
-                                                                                                .toString())
-                                                                                .build())
-                                                                .collect(Collectors.toSet()))
-                                .build();
+                                        .collect(Collectors.toSet()))
+                        .build();
         }
 }
