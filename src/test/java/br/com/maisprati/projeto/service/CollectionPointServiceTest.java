@@ -4,11 +4,13 @@ import br.com.maisprati.projeto.dto.projection.CollectionPointDistanceProjection
 import br.com.maisprati.projeto.dto.request.CollectionPointUpdateDTO;
 import br.com.maisprati.projeto.model.entity.Address;
 import br.com.maisprati.projeto.model.entity.CollectionPoint;
+import br.com.maisprati.projeto.model.entity.CollectionPointPendingUpdate;
 import br.com.maisprati.projeto.model.entity.User;
 import br.com.maisprati.projeto.model.enums.CollectionPointStatus;
 import br.com.maisprati.projeto.model.enums.Role;
 import br.com.maisprati.projeto.repository.ClothTypeRepository;
 import br.com.maisprati.projeto.repository.CollectionPointRepository;
+import br.com.maisprati.projeto.repository.CollectionPointPendingUpdateRepository;
 import br.com.maisprati.projeto.repository.UserRepository;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -22,6 +24,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.HashSet;
@@ -31,7 +34,9 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,6 +46,9 @@ class CollectionPointServiceTest {
 
     @Mock
     private CollectionPointRepository collectionPointRepository;
+
+    @Mock
+    private CollectionPointPendingUpdateRepository pendingUpdateRepository;
 
     @Mock
     private ClothTypeRepository clothTypeRepository;
@@ -479,12 +487,15 @@ class CollectionPointServiceTest {
         verify(
                 collectionPointRepository,
                 never()
-        ).findNearby(
-                any(),
+        ).findNearbyNoClothTypes(
                 any(),
                 any(),
                 any(),
                 any()
+        );
+
+        verify(collectionPointRepository, never()).findNearbyWithClothTypes(
+                any(), any(), any(), any(), any()
         );
     }
 
@@ -510,11 +521,10 @@ class CollectionPointServiceTest {
                         0
                 );
 
-        when(collectionPointRepository.findNearby(
+        when(collectionPointRepository.findNearbyNoClothTypes(
                 latitude,
                 longitude,
                 defaultRadius,
-                null,
                 pageable
         )).thenReturn(emptyPage);
 
@@ -532,11 +542,10 @@ class CollectionPointServiceTest {
                 result.getTotalElements()
         );
 
-        verify(collectionPointRepository).findNearby(
+        verify(collectionPointRepository).findNearbyNoClothTypes(
                 latitude,
                 longitude,
                 defaultRadius,
-                null,
                 pageable
         );
     }
@@ -568,7 +577,7 @@ class CollectionPointServiceTest {
                         0
                 );
 
-        when(collectionPointRepository.findNearby(
+        when(collectionPointRepository.findNearbyWithClothTypes(
                 latitude,
                 longitude,
                 repositoryRadius,
@@ -590,7 +599,7 @@ class CollectionPointServiceTest {
                 result.getTotalElements()
         );
 
-        verify(collectionPointRepository).findNearby(
+        verify(collectionPointRepository).findNearbyWithClothTypes(
                 latitude,
                 longitude,
                 repositoryRadius,
@@ -599,58 +608,29 @@ class CollectionPointServiceTest {
         );
     }
 
-    // TEST 14
+    // TEST 14 - Updates are submitted for approval, not applied immediately.
     @Test
-    void shouldRejectUpdateWhenClothTypeDoesNotExist() {
-
-        CollectionPoint point = createCollectionPoint(
-                12L,
-                CollectionPointStatus.ACTIVE
+    void shouldCreatePendingUpdateWithoutApplyingChanges() {
+        CollectionPoint point = createCollectionPoint(12L, CollectionPointStatus.ACTIVE);
+        User admin = createUser(1L, "admin@qa.com", Role.ADMIN);
+        String originalName = point.getName();
+        CollectionPointUpdateDTO dto = new CollectionPointUpdateDTO(
+                "UPDATED ECOPONTO", null, null, null, null, null
         );
 
-        Set<Long> requestedClothTypeIds =
-                Set.of(999L);
+        when(collectionPointRepository.findById(12L)).thenReturn(Optional.of(point));
+        when(userRepository.findByEmail("admin@qa.com")).thenReturn(Optional.of(admin));
+        when(pendingUpdateRepository.findByCollectionPointId(12L)).thenReturn(Optional.empty());
+        when(collectionPointRepository.save(point)).thenReturn(point);
 
-        CollectionPointUpdateDTO dto =
-                new CollectionPointUpdateDTO(
-                        null,
-                        null,
-                        null,
-                        null,
-                        requestedClothTypeIds,
-                        null
-                );
+        collectionPointService.updateCollectionPoint(12L, dto, "admin@qa.com");
 
-        when(collectionPointRepository.findById(12L))
-                .thenReturn(Optional.of(point));
-
-        when(clothTypeRepository.findAllById(requestedClothTypeIds))
-                .thenReturn(List.of());
-
-        var exception =
-                assertThrows(
-                        IllegalArgumentException.class,
-                        () -> collectionPointService
-                                .updateCollectionPoint(
-                                        12L,
-                                        dto
-                                )
-                );
-
-        assertEquals(
-                "Um ou mais tipos de tecidos informados não foram encontrados.",
-                exception.getMessage()
+        assertEquals(originalName, point.getName());
+        verify(pendingUpdateRepository).save(any(CollectionPointPendingUpdate.class));
+        verify(collectionPointRepository).save(point);
+        verify(collectionPointMapper, never()).updateEntityFromDto(
+                any(CollectionPointUpdateDTO.class), any(CollectionPoint.class)
         );
-
-        verify(collectionPointRepository).findById(12L);
-
-        verify(clothTypeRepository)
-                .findAllById(requestedClothTypeIds);
-
-        verify(
-                collectionPointRepository,
-                never()
-        ).save(any(CollectionPoint.class));
     }
 
     // TEST 15
@@ -679,7 +659,8 @@ class CollectionPointServiceTest {
                         () -> collectionPointService
                                 .updateCollectionPoint(
                                         nonexistentCollectionPointId,
-                                        dto
+                                        dto,
+                                        "admin@qa.com"
                                 )
                 );
 
@@ -703,6 +684,203 @@ class CollectionPointServiceTest {
                 collectionPointRepository,
                 never()
         ).save(any(CollectionPoint.class));
+    }
+
+    // TEST 16 - A donor cannot request changes to a collection point they do not manage.
+    @Test
+    void shouldRejectUpdateForUnauthorizedUser() {
+        CollectionPoint point = createCollectionPoint(16L, CollectionPointStatus.ACTIVE);
+        User donor = createUser(99L, "donor@qa.com", Role.DOADOR);
+        String originalName = point.getName();
+        CollectionPointUpdateDTO dto = new CollectionPointUpdateDTO(
+                "UNAUTHORIZED UPDATE", null, null, null, null, null
+        );
+
+        when(collectionPointRepository.findById(16L)).thenReturn(Optional.of(point));
+        when(userRepository.findByEmail("donor@qa.com")).thenReturn(Optional.of(donor));
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> collectionPointService.updateCollectionPoint(16L, dto, "donor@qa.com")
+        );
+
+        assertEquals(originalName, point.getName());
+        verify(collectionPointRepository, never()).save(any(CollectionPoint.class));
+        verify(pendingUpdateRepository, never()).save(any(CollectionPointPendingUpdate.class));
+    }
+
+    // TEST 17 - An approved pending update applies the proposed name and clears the request.
+    @Test
+    void shouldApplyApprovedPendingUpdateAndClearPendingFlag() {
+        CollectionPoint point = createCollectionPoint(17L, CollectionPointStatus.ACTIVE);
+        point.setHasPendingUpdate(true);
+        String originalName = point.getName();
+        String proposedName = "UPDATED ECOPONTO";
+        CollectionPointPendingUpdate pending = CollectionPointPendingUpdate.builder()
+                .collectionPoint(point)
+                .updatePayloadJson("{\"name\":\"UPDATED ECOPONTO\"}")
+                .build();
+
+        when(pendingUpdateRepository.findByCollectionPointId(17L))
+                .thenReturn(Optional.of(pending));
+        doAnswer(invocation -> {
+            CollectionPointUpdateDTO proposed = invocation.getArgument(0);
+            CollectionPoint target = invocation.getArgument(1);
+            target.setName(proposed.name());
+            return null;
+        }).when(collectionPointMapper).updateEntityFromDto(
+                any(CollectionPointUpdateDTO.class), any(CollectionPoint.class));
+
+        assertEquals(originalName, point.getName());
+        collectionPointService.approvePendingUpdate(17L);
+
+        assertEquals(proposedName, point.getName());
+        assertEquals(false, ReflectionTestUtils.getField(point, "hasPendingUpdate"));
+        verify(collectionPointRepository).save(point);
+        verify(pendingUpdateRepository).delete(pending);
+        verify(collectionPointMapper).updateEntityFromDto(
+                any(CollectionPointUpdateDTO.class), any(CollectionPoint.class));
+    }
+
+    // TEST 18 - Rejecting a pending update preserves the approved data.
+    @Test
+    void shouldRejectPendingUpdateWithoutChangingCollectionPoint() {
+        CollectionPoint point = createCollectionPoint(18L, CollectionPointStatus.ACTIVE);
+        point.setHasPendingUpdate(true);
+        String originalName = point.getName();
+        CollectionPointPendingUpdate pending = CollectionPointPendingUpdate.builder()
+                .collectionPoint(point)
+                .updatePayloadJson("{\"name\":\"REJECTED ECOPONTO\"}")
+                .build();
+
+        when(pendingUpdateRepository.findByCollectionPointId(18L))
+                .thenReturn(Optional.of(pending));
+
+        collectionPointService.rejectPendingUpdate(18L);
+
+        assertEquals(originalName, point.getName());
+        assertEquals(CollectionPointStatus.ACTIVE, point.getStatus());
+        assertEquals(false, ReflectionTestUtils.getField(point, "hasPendingUpdate"));
+        verify(collectionPointRepository).save(point);
+        verify(pendingUpdateRepository).delete(pending);
+        verify(collectionPointMapper, never()).updateEntityFromDto(
+                any(CollectionPointUpdateDTO.class), any(CollectionPoint.class));
+    }
+
+    // TEST 19 - Approving a nonexistent pending update must not change data.
+    @Test
+    void shouldRejectApprovalWhenPendingUpdateDoesNotExist() {
+        Long collectionPointId = 19L;
+        when(pendingUpdateRepository.findByCollectionPointId(collectionPointId))
+                .thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class,
+                () -> collectionPointService.approvePendingUpdate(collectionPointId));
+
+        verify(pendingUpdateRepository).findByCollectionPointId(collectionPointId);
+        verify(collectionPointRepository, never()).save(any(CollectionPoint.class));
+        verify(pendingUpdateRepository, never()).delete(any(CollectionPointPendingUpdate.class));
+    }
+
+    // TEST 20 - Rejecting a nonexistent pending update must not change data.
+    @Test
+    void shouldRejectRejectionWhenPendingUpdateDoesNotExist() {
+        Long collectionPointId = 20L;
+        when(pendingUpdateRepository.findByCollectionPointId(collectionPointId))
+                .thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class,
+                () -> collectionPointService.rejectPendingUpdate(collectionPointId));
+
+        verify(pendingUpdateRepository).findByCollectionPointId(collectionPointId);
+        verify(collectionPointRepository, never()).save(any(CollectionPoint.class));
+        verify(pendingUpdateRepository, never()).delete(any(CollectionPointPendingUpdate.class));
+    }
+
+    // TEST 21 - Malformed pending update JSON must not modify the collection point.
+    @Test
+    void shouldRejectApprovalWhenPendingUpdatePayloadIsInvalid() {
+        CollectionPoint point = createCollectionPoint(21L, CollectionPointStatus.ACTIVE);
+        point.setHasPendingUpdate(true);
+        String originalName = point.getName();
+        CollectionPointPendingUpdate pending = CollectionPointPendingUpdate.builder()
+                .collectionPoint(point)
+                .updatePayloadJson("{invalid-json")
+                .build();
+
+        when(pendingUpdateRepository.findByCollectionPointId(21L))
+                .thenReturn(Optional.of(pending));
+
+        assertThrows(RuntimeException.class,
+                () -> collectionPointService.approvePendingUpdate(21L));
+
+        assertEquals(originalName, point.getName());
+        assertEquals(true, ReflectionTestUtils.getField(point, "hasPendingUpdate"));
+        verify(collectionPointRepository, never()).save(any(CollectionPoint.class));
+        verify(pendingUpdateRepository, never()).delete(any(CollectionPointPendingUpdate.class));
+        verify(collectionPointMapper, never()).updateEntityFromDto(
+                any(CollectionPointUpdateDTO.class), any(CollectionPoint.class));
+    }
+
+    // TEST 22 - A nonexistent collection point cannot be retrieved as active.
+    @Test
+    void shouldRejectActiveCollectionPointLookupWhenPointDoesNotExist() {
+        Long collectionPointId = 22L;
+        when(collectionPointRepository.findById(collectionPointId))
+                .thenReturn(Optional.empty());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> collectionPointService.getCollectionPointByIdAndStatusActive(collectionPointId));
+
+        verify(collectionPointRepository).findById(collectionPointId);
+        verify(collectionPointRepository, never()).save(any(CollectionPoint.class));
+    }
+
+    // TEST 23 - A suspended collection point cannot be retrieved as active.
+    @Test
+    void shouldRejectSuspendedCollectionPointWhenActiveStatusIsRequired() {
+        Long collectionPointId = 23L;
+        CollectionPoint point = createCollectionPoint(collectionPointId, CollectionPointStatus.SUSPENDED);
+
+        when(collectionPointRepository.findById(collectionPointId))
+                .thenReturn(Optional.of(point));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> collectionPointService.getCollectionPointByIdAndStatusActive(collectionPointId));
+
+        assertEquals(CollectionPointStatus.SUSPENDED, point.getStatus());
+        verify(collectionPointRepository).findById(collectionPointId);
+        verify(collectionPointRepository, never()).save(any(CollectionPoint.class));
+    }
+
+    // TEST 24 - A collection point without a status cannot be retrieved as active.
+    @Test
+    void shouldRejectCollectionPointWithoutStatusWhenActiveStatusIsRequired() {
+        Long collectionPointId = 24L;
+        CollectionPoint point = createCollectionPoint(collectionPointId, null);
+
+        when(collectionPointRepository.findById(collectionPointId))
+                .thenReturn(Optional.of(point));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> collectionPointService.getCollectionPointByIdAndStatusActive(collectionPointId));
+
+        assertNull(point.getStatus());
+        verify(collectionPointRepository).findById(collectionPointId);
+        verify(collectionPointRepository, never()).save(any(CollectionPoint.class));
+    }
+
+    // TEST 25 - A null collection point ID cannot be retrieved as active.
+    @Test
+    void shouldRejectActiveCollectionPointLookupWhenIdIsNull() {
+        when(collectionPointRepository.findById(null))
+                .thenReturn(Optional.empty());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> collectionPointService.getCollectionPointByIdAndStatusActive(null));
+
+        verify(collectionPointRepository).findById(null);
+        verify(collectionPointRepository, never()).save(any(CollectionPoint.class));
     }
 
     private Address createAddress() {
