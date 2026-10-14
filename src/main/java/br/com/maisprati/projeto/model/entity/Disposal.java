@@ -54,4 +54,8 @@ public class Disposal {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cashback_credit_id")
+    private Transaction cashbackCredit;
 }
