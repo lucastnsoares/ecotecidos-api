@@ -56,6 +56,6 @@ public class RegisterUserService {
 
         passwordResetTokenService.forgotPassword(new AuthForgotPasswordRequestDTO(savedUser.getEmail()));
 
-        return new UserResponseDTO(newUser);
+        return new UserResponseDTO(newUser, null);
     }
 }

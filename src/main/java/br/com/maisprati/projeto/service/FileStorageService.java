@@ -1,5 +1,8 @@
 package br.com.maisprati.projeto.service;
 
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -7,7 +10,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Iterator;
 import java.util.List;
+
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -21,6 +30,9 @@ public class FileStorageService {
     private String uploadDir;
 
     private static final List<String> ALLOWED_CONTENT_TYPES = List.of("image/jpeg", "image/png", "image/webp");
+    private static final long MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
+    private static final int MAX_AVATAR_DIMENSION = 8_000;
+    private static final int AVATAR_SIZE = 512;
 
     public void validateImageFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -77,6 +89,94 @@ public class FileStorageService {
 
     public String saveCollectionPointImage(Long collectionPointId, MultipartFile file) {
         return saveEntityImage(file, "collection-points", collectionPointId, "image");
+    }
+
+    public String saveUserAvatar(Long userId, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return null;
+        }
+        if (file.getSize() > MAX_AVATAR_SIZE_BYTES) {
+            throw new IllegalArgumentException("O avatar deve ter no máximo 5 MB.");
+        }
+
+        validateImageFile(file);
+
+        try {
+            BufferedImage original;
+            try (InputStream inputStream = file.getInputStream()) {
+                original = ImageIO.read(inputStream);
+            }
+
+            if (original == null) {
+                throw new IllegalArgumentException("O arquivo enviado não contém uma imagem válida.");
+            }
+            if (original.getWidth() > MAX_AVATAR_DIMENSION
+                    || original.getHeight() > MAX_AVATAR_DIMENSION) {
+                throw new IllegalArgumentException("As dimensões do avatar não podem exceder 8000x8000 pixels.");
+            }
+
+            Path baseDir = baseDirectory();
+            Path targetDir = resolveEntityDirectory("users", userId);
+            Files.createDirectories(targetDir);
+
+            Path temporaryPath = targetDir.resolve("avatar.tmp").normalize();
+            Path targetPath = targetDir.resolve("avatar.jpg").normalize();
+            if (!temporaryPath.startsWith(targetDir) || !targetPath.startsWith(targetDir)) {
+                throw new IllegalArgumentException("Caminho de armazenamento inválido.");
+            }
+
+            writeJpeg(createAvatarImage(original), temporaryPath);
+
+            try {
+                Files.move(temporaryPath, targetPath,
+                        StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                Files.move(temporaryPath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            return baseDir.relativize(targetPath).toString().replace('\\', '/');
+        } catch (IOException e) {
+            throw new RuntimeException("Falha ao processar o avatar.", e);
+        }
+    }
+
+    private void writeJpeg(BufferedImage image, Path targetPath) throws IOException {
+        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
+        if (!writers.hasNext()) {
+            throw new IOException("Nenhum codificador JPEG disponível.");
+        }
+
+        ImageWriter writer = writers.next();
+        try (ImageOutputStream output = ImageIO.createImageOutputStream(targetPath.toFile())) {
+            writer.setOutput(output);
+            ImageWriteParam parameters = writer.getDefaultWriteParam();
+            parameters.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            parameters.setCompressionQuality(0.85f);
+            writer.write(null, new javax.imageio.IIOImage(image, null, null), parameters);
+        } finally {
+            writer.dispose();
+        }
+    }
+
+    private BufferedImage createAvatarImage(BufferedImage original) {
+        int cropSize = Math.min(original.getWidth(), original.getHeight());
+        int x = (original.getWidth() - cropSize) / 2;
+        int y = (original.getHeight() - cropSize) / 2;
+
+        BufferedImage avatar = new BufferedImage(AVATAR_SIZE, AVATAR_SIZE, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = avatar.createGraphics();
+        try {
+            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                    RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            graphics.setRenderingHint(RenderingHints.KEY_RENDERING,
+                    RenderingHints.VALUE_RENDER_QUALITY);
+            graphics.drawImage(original, 0, 0, AVATAR_SIZE, AVATAR_SIZE,
+                    x, y, x + cropSize, y + cropSize, null);
+        } finally {
+            graphics.dispose();
+        }
+        return avatar;
     }
 
     private String saveEntityImage(
@@ -140,6 +240,10 @@ public class FileStorageService {
     }
 
     public void deletePostCoverImage(String fileName) {
+        deleteImage(fileName);
+    }
+
+    public void deleteImage(String fileName) {
         if (fileName == null || fileName.isBlank()) {
             return;
         }
@@ -151,7 +255,7 @@ public class FileStorageService {
             }
             Files.deleteIfExists(filePath);
         } catch (IOException e) {
-            throw new RuntimeException("Falha ao deletar a imagem do post.", e);
+            throw new RuntimeException("Falha ao deletar a imagem.", e);
         }
     }
 

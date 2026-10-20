@@ -10,7 +10,9 @@ import br.com.maisprati.projeto.dto.response.ValidationErrorResponseDTO;
 import br.com.maisprati.projeto.model.entity.User;
 import br.com.maisprati.projeto.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Encoding;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -19,11 +21,19 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 @RestController
 @RequestMapping("/user")
@@ -84,49 +94,50 @@ public class UserController {
                 return ResponseEntity.noContent().build();
         }
 
-        @Operation(summary = "Editar perfil", description = "Atualiza nome, e-mail e telefone do usuário logado e retorna o novo token JWT.")
+
+        @Operation(summary = "Editar perfil", description = "Atualiza os dados cadastrais e, opcionalmente, substitui ou remove o avatar. A parte data deve conter o JSON do perfil.")
         @ApiResponses({
-                        @ApiResponse(responseCode = "200", description = "Perfil atualizado com sucesso", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = UserUpdatedResponseDTO.class))),
-                        @ApiResponse(responseCode = "400", description = "Campos inválidos ou e-mail já cadastrado", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(anyOf = {
-                                        ValidationErrorResponseDTO.class, ErrorResponseDTO.class }), examples = {
-                                                        @ExampleObject(name = "Erro de Validação", value = """
-                                                                        {
-                                                                          "timestamp": "2026-08-27T00:00:00Z",
-                                                                          "status": 400,
-                                                                          "error": "Bad Request",
-                                                                          "message": "Erro de validação nos campos enviados.",
-                                                                          "path": "/api/v1/user",
-                                                                          "fieldErrors": [
-                                                                            { "field": "phone", "message": "Número de telefone inválido no padrão internacional." }
-                                                                          ]
-                                                                        }
-                                                                        """),
-                                                        @ExampleObject(name = "E-mail Duplicado", value = """
-                                                                        {
-                                                                          "timestamp": "2026-08-27T00:00:00Z",
-                                                                          "status": 400,
-                                                                          "error": "Bad Request",
-                                                                          "message": "E-mail já cadastrado.",
-                                                                          "path": "/api/v1/user"
-                                                                        }
-                                                                        """)
-                                        })),
-                        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class), examples = @ExampleObject(value = """
-                                        {
-                                          "timestamp": "2026-08-27T00:00:00Z",
-                                          "status": 401,
-                                          "error": "Unauthorized",
-                                          "message": "Token de autenticação ausente ou inválido.",
-                                          "path": "/api/v1/user"
-                                        }
-                                        """)))
+                        @ApiResponse(responseCode = "200", description = "Perfil atualizado com sucesso", content = @Content(schema = @Schema(implementation = UserUpdatedResponseDTO.class))),
+                        @ApiResponse(responseCode = "400", description = "Dados ou arquivo de imagem inválidos", content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+                        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido", content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
         })
-        @PatchMapping
-        public ResponseEntity<UserUpdatedResponseDTO> editUserData(
-                        @RequestBody @Valid UserEditProfileRequestDTO dto,
+        @PatchMapping(value = "", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+        public ResponseEntity<UserUpdatedResponseDTO> editUserDataWithImage(
+                        @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                                        content = @Content(
+                                                        encoding = @Encoding(name = "data", contentType = "application/json")))
+                        @Valid @RequestPart("data") UserEditProfileRequestDTO dto,
+                        @Parameter(description = "Novo avatar do usuário (JPEG, PNG ou WebP)", example = "avatar.jpg")
+                        @RequestPart(value = "image", required = false) MultipartFile image,
                         @AuthenticationPrincipal User loggedInUser) {
-                var userUpdated = userService.editUserData(loggedInUser, dto);
-                return ResponseEntity.ok(userUpdated);
+                return ResponseEntity.ok(userService.editUserData(loggedInUser, dto, image));
+        }
+
+        @GetMapping("/avatar")
+        @Operation(summary = "Obter próprio avatar", description = "Retorna somente a imagem de perfil do usuário autenticado.")
+        @ApiResponses({
+                        @ApiResponse(responseCode = "200", description = "Imagem retornada com sucesso"),
+                        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
+                                        content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+                        @ApiResponse(responseCode = "404", description = "Usuário não encontrado ou sem imagem",
+                                        content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+        })
+        public ResponseEntity<Resource> getAvatar(@AuthenticationPrincipal User loggedInUser) throws IOException {
+                return buildImageResponse(userService.getAvatar(loggedInUser));
+        }
+
+        private ResponseEntity<Resource> buildImageResponse(Resource avatar) throws IOException {
+                String contentType = Files.probeContentType(Paths.get(avatar.getURI()));
+                if (contentType == null) {
+                        contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+                }
+
+                return ResponseEntity.ok()
+                                .contentType(MediaType.parseMediaType(contentType))
+                                .header(HttpHeaders.CONTENT_DISPOSITION,
+                                                "inline; filename=\"" + avatar.getFilename() + "\"")
+                                .cacheControl(CacheControl.noStore())
+                                .body(avatar);
         }
 
         @GetMapping("/associations")

@@ -30,6 +30,9 @@ public record UserResponseDTO(
         @Schema(description = "Perfis associados ao usuário", example = "[\"DOADOR\"]")
         Set<Role> roles,
 
+        @Schema(description = "URL do endpoint de imagem de perfil", example = "/user/avatar")
+        String avatarUrl,
+
         @Schema(description = "Data de criação do registro", example = "2026-08-26T22:00:00Z")
         Instant createdAt,
 
@@ -38,6 +41,12 @@ public record UserResponseDTO(
 ) {
 
     public UserResponseDTO(User user){
+        this(user, user.getAvatarUrl() != null && !user.getAvatarUrl().isBlank()
+                ? "/user/avatar"
+                : null);
+    }
+
+    public UserResponseDTO(User user, String avatarUrl) {
         this(
                 user.getId(),
                 user.getName(),
@@ -46,9 +55,9 @@ public record UserResponseDTO(
                 user.getPhone(),
                 user.getActive(),
                 user.getRole(),
+                avatarUrl,
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );
     }
 }
-

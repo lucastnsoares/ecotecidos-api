@@ -582,6 +582,7 @@ public class CollectionPointService {
                         .status(entity.getStatus())
                         .hasPendingUpdate(entity.isHasPendingUpdate())
                         .pointPictureUrl(entity.getPointPictureUrl() != null
+                                && !entity.getPointPictureUrl().isBlank()
                                 ? "/collection-points/" + entity.getId() + "/image"
                                 : null)
                         .address(CollectionPointResponseDTO.AddressResponseDTO.builder()
