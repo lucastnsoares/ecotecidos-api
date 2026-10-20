@@ -1,7 +1,7 @@
 package br.com.maisprati.projeto.service;
 
 import br.com.maisprati.projeto.dto.projection.CollectionPointDistanceProjectionDTO;
-import br.com.maisprati.projeto.dto.request.CollectionPointUpdateDTO;
+import br.com.maisprati.projeto.dto.request.CollectionPointUpdateRequestDTO;
 import br.com.maisprati.projeto.model.entity.Address;
 import br.com.maisprati.projeto.model.entity.CollectionPoint;
 import br.com.maisprati.projeto.model.entity.CollectionPointPendingUpdate;
@@ -24,6 +24,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
@@ -36,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -64,6 +66,9 @@ class CollectionPointServiceTest {
 
     @Mock
     private br.com.maisprati.projeto.mapper.CollectionPointMapper collectionPointMapper;
+
+    @Mock
+    private FileStorageService fileStorageService;
 
     @InjectMocks
     private CollectionPointService collectionPointService;
@@ -614,7 +619,7 @@ class CollectionPointServiceTest {
         CollectionPoint point = createCollectionPoint(12L, CollectionPointStatus.ACTIVE);
         User admin = createUser(1L, "admin@qa.com", Role.ADMIN);
         String originalName = point.getName();
-        CollectionPointUpdateDTO dto = new CollectionPointUpdateDTO(
+        CollectionPointUpdateRequestDTO dto = new CollectionPointUpdateRequestDTO(
                 "UPDATED ECOPONTO", null, null, null, null, null
         );
 
@@ -629,8 +634,40 @@ class CollectionPointServiceTest {
         verify(pendingUpdateRepository).save(any(CollectionPointPendingUpdate.class));
         verify(collectionPointRepository).save(point);
         verify(collectionPointMapper, never()).updateEntityFromDto(
-                any(CollectionPointUpdateDTO.class), any(CollectionPoint.class)
+                any(CollectionPointUpdateRequestDTO.class), any(CollectionPoint.class)
         );
+    }
+
+    @Test
+    void shouldPersistUploadedImagePathInPendingUpdatePayload() throws Exception {
+        CollectionPoint point = createCollectionPoint(13L, CollectionPointStatus.ACTIVE);
+        User admin = createUser(1L, "admin@qa.com", Role.ADMIN);
+        CollectionPointUpdateRequestDTO dto = new CollectionPointUpdateRequestDTO(
+                "UPDATED ECOPONTO", null, null, null, null, null
+        );
+        MockMultipartFile image = new MockMultipartFile(
+                "image", "point.jpg", "image/jpeg", new byte[] { 1, 2, 3 }
+        );
+
+        when(collectionPointRepository.findById(13L)).thenReturn(Optional.of(point));
+        when(userRepository.findByEmail("admin@qa.com")).thenReturn(Optional.of(admin));
+        when(pendingUpdateRepository.findByCollectionPointId(13L)).thenReturn(Optional.empty());
+        when(collectionPointRepository.save(point)).thenReturn(point);
+        when(fileStorageService.saveCollectionPointImage(13L, image))
+                .thenReturn("collection-points/13/image_123.jpg");
+
+        collectionPointService.updateCollectionPoint(13L, dto, image, "admin@qa.com");
+
+        var pendingCaptor = org.mockito.ArgumentCaptor.forClass(CollectionPointPendingUpdate.class);
+        verify(pendingUpdateRepository).save(pendingCaptor.capture());
+        assertEquals(
+                "collection-points/13/image_123.jpg",
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(pendingCaptor.getValue().getUpdatePayloadJson())
+                        .get("imageUrl")
+                        .asText()
+        );
+        verify(fileStorageService).saveCollectionPointImage(eq(13L), eq(image));
     }
 
     // TEST 15
@@ -639,8 +676,8 @@ class CollectionPointServiceTest {
 
         Long nonexistentCollectionPointId = 999L;
 
-        CollectionPointUpdateDTO dto =
-                new CollectionPointUpdateDTO(
+        CollectionPointUpdateRequestDTO dto =
+                new CollectionPointUpdateRequestDTO(
                         "ECOPONTO INEXISTENTE",
                         null,
                         null,
@@ -676,7 +713,7 @@ class CollectionPointServiceTest {
                 collectionPointMapper,
                 never()
         ).updateEntityFromDto(
-                any(CollectionPointUpdateDTO.class),
+                any(CollectionPointUpdateRequestDTO.class),
                 any(CollectionPoint.class)
         );
 
@@ -692,7 +729,7 @@ class CollectionPointServiceTest {
         CollectionPoint point = createCollectionPoint(16L, CollectionPointStatus.ACTIVE);
         User donor = createUser(99L, "donor@qa.com", Role.DOADOR);
         String originalName = point.getName();
-        CollectionPointUpdateDTO dto = new CollectionPointUpdateDTO(
+        CollectionPointUpdateRequestDTO dto = new CollectionPointUpdateRequestDTO(
                 "UNAUTHORIZED UPDATE", null, null, null, null, null
         );
 
@@ -724,12 +761,12 @@ class CollectionPointServiceTest {
         when(pendingUpdateRepository.findByCollectionPointId(17L))
                 .thenReturn(Optional.of(pending));
         doAnswer(invocation -> {
-            CollectionPointUpdateDTO proposed = invocation.getArgument(0);
+            CollectionPointUpdateRequestDTO proposed = invocation.getArgument(0);
             CollectionPoint target = invocation.getArgument(1);
             target.setName(proposed.name());
             return null;
         }).when(collectionPointMapper).updateEntityFromDto(
-                any(CollectionPointUpdateDTO.class), any(CollectionPoint.class));
+                any(CollectionPointUpdateRequestDTO.class), any(CollectionPoint.class));
 
         assertEquals(originalName, point.getName());
         collectionPointService.approvePendingUpdate(17L);
@@ -739,7 +776,7 @@ class CollectionPointServiceTest {
         verify(collectionPointRepository).save(point);
         verify(pendingUpdateRepository).delete(pending);
         verify(collectionPointMapper).updateEntityFromDto(
-                any(CollectionPointUpdateDTO.class), any(CollectionPoint.class));
+                any(CollectionPointUpdateRequestDTO.class), any(CollectionPoint.class));
     }
 
     // TEST 18 - Rejecting a pending update preserves the approved data.
@@ -764,7 +801,7 @@ class CollectionPointServiceTest {
         verify(collectionPointRepository).save(point);
         verify(pendingUpdateRepository).delete(pending);
         verify(collectionPointMapper, never()).updateEntityFromDto(
-                any(CollectionPointUpdateDTO.class), any(CollectionPoint.class));
+                any(CollectionPointUpdateRequestDTO.class), any(CollectionPoint.class));
     }
 
     // TEST 19 - Approving a nonexistent pending update must not change data.
@@ -819,7 +856,7 @@ class CollectionPointServiceTest {
         verify(collectionPointRepository, never()).save(any(CollectionPoint.class));
         verify(pendingUpdateRepository, never()).delete(any(CollectionPointPendingUpdate.class));
         verify(collectionPointMapper, never()).updateEntityFromDto(
-                any(CollectionPointUpdateDTO.class), any(CollectionPoint.class));
+                any(CollectionPointUpdateRequestDTO.class), any(CollectionPoint.class));
     }
 
     // TEST 22 - A nonexistent collection point cannot be retrieved as active.

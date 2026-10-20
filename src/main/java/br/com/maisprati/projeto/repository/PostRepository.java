@@ -72,4 +72,5 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     );
     
     Boolean existsByCategory(Category category);
+    Optional<Post> findByIdAndDeletedAtIsNull(Long id);
 }

@@ -30,7 +30,7 @@ public class CollectionPointCreateRequestDTO {
     @NotNull(message = "A longitude é obrigatória.")
     private BigDecimal longitude;
 
-    @Schema(description = "URL da imagem de capa do ponto de coleta", example = "https://example.jpg")
+    @Schema(hidden = true)
     private String imageUrl;
 
     @Schema(description = "IDs dos tipos de tecido aceitos pelo ponto de coleta", example = "[1, 2]")

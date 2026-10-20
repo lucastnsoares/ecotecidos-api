@@ -24,7 +24,7 @@ public record PostSummaryResponseDTO(
         @Schema(description = "Nome da categoria associada ao artigo", example = "Upcycling")
         String categoryName,
 
-        @Schema(description = "URL da imagem de capa", example = "https://www.projeto.com.br/posts/jeans-upcycling.jpg")
+        @Schema(description = "URL pública da imagem de capa", example = "/posts/1/image")
         String coverImageUrl,
 
         @Schema(description = "Texto alternativo da imagem para leitores de tela e acessibilidade (WCAG)", example = "Mãos costurando retalhos de calça jeans sobre uma mesa de madeira.")
@@ -46,7 +46,9 @@ public record PostSummaryResponseDTO(
             post.getTitle(),
             post.getSummary(),
             post.getCategory() != null ? post.getCategory().getName() : "",
-            post.getCoverImageUrl() != null ? post.getCoverImageUrl() : "",
+            post.getCoverImageUrl() != null && !post.getCoverImageUrl().isBlank()
+                ? "/posts/" + post.getId() + "/image"
+                : null,
             post.getCoverImageAlt() != null ? post.getCoverImageAlt() : "",
             post.getTags(),
             post.getClothTypes() != null ? post.getClothTypes().stream()

@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.core.io.Resource;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -25,8 +27,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.http.MediaType;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URI;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 @RestController
 @RequestMapping("/admin/collection-points")
@@ -48,12 +54,13 @@ public class AdminCollectionPointController {
 
             @ApiResponse(responseCode = "403", description = "Acesso negado para o perfil atual", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class)))
     })
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CollectionPointResponseDTO> createCollectionPoint(
-            @Valid @RequestBody CollectionPointCreateRequestDTO requestDTO,
+            @RequestPart("data") @Valid CollectionPointCreateRequestDTO requestDTO,
+            @RequestPart(value = "image", required = false) MultipartFile image,
             @AuthenticationPrincipal UserDetails userDetails) {
 
-        CollectionPointResponseDTO response = collectionPointService.createCollectionPoint(requestDTO, userDetails.getUsername());
+        CollectionPointResponseDTO response = collectionPointService.createCollectionPoint(requestDTO, image, userDetails.getUsername());
 
         URI uri = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
@@ -94,8 +101,72 @@ public class AdminCollectionPointController {
         return ResponseEntity.ok().body(collectionPointService.getCollectionPointById(id));
     }
 
+    @GetMapping("/{id}/image")
+    @Operation(summary = "Obter imagem de um ponto de coleta",
+            description = "Retorna a imagem de um ponto de coleta em qualquer status. Disponível somente para administradores.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Imagem retornada com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Ponto sem imagem ou arquivo não encontrado.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Ponto de coleta não encontrado.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponseDTO.class)))
+    })
+    public ResponseEntity<Resource> getCollectionPointImage(@PathVariable Long id) throws IOException {
+        Resource imageResource = collectionPointService.findImageByCollectionPointIdForAdmin(id);
+        String contentType = Files.probeContentType(Paths.get(imageResource.getURI()));
+        if (contentType == null) {
+            contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"" + imageResource.getFilename() + "\"")
+                .body(imageResource);
+    }
+
+    @GetMapping("/{id}/pending-image")
+    @Operation(summary = "Obter imagem de um ponto de coleta com edição pendente de aprovação",
+            description = "Retorna a nova imagem enviada em uma edição pendente. Disponível somente para administradores.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Imagem pendente retornada com sucesso"),
+            @ApiResponse(responseCode = "400", description = "A edição pendente não possui imagem ou o arquivo não foi encontrado.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Edição pendente não encontrada.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponseDTO.class)))
+    })
+    public ResponseEntity<Resource> getPendingCollectionPointImage(@PathVariable Long id) throws IOException {
+        Resource imageResource = collectionPointService.findPendingImageByCollectionPointIdForAdmin(id);
+        String contentType = Files.probeContentType(Paths.get(imageResource.getURI()));
+        if (contentType == null) {
+            contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"" + imageResource.getFilename() + "\"")
+                .body(imageResource);
+    }
+
     @GetMapping("/pending-updates")
-    @Operation(summary = "Listar edições pendentes", description = "Retorna os pontos de coleta que aguardam aprovação de edição (hasPendingUpdate = true).")
+    @Operation(summary = "Listar edições de ponto de coleta pendentes de aprovação por um administrador", description = "Retorna os pontos de coleta que aguardam aprovação de edição (hasPendingUpdate = true).")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Edições pendentes listadas com sucesso.",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = PendingUpdateResponseDTO.class))),
@@ -140,7 +211,7 @@ public class AdminCollectionPointController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Listar pontos pendentes", description = "Retorna uma lista paginada de pontos com status PENDING.")
+    @Operation(summary = "Listar pontos pendentes de aprovação pelo administrador", description = "Retorna uma lista paginada de pontos com status PENDING.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Lista recuperada com sucesso."),
             @ApiResponse(responseCode = "401", description = "Token ausente ou inválido.",
@@ -154,7 +225,7 @@ public class AdminCollectionPointController {
         return ResponseEntity.ok(collectionPointService.findPendingCollectionPoints(pageable));
     }
 
-    @Operation(summary = "Aprovar ponto de coleta", description = "Altera o status do ponto para APPROVED e define isActive como true.")
+    @Operation(summary = "Aprovar ponto de coleta", description = "Altera o status do ponto para ACTIVE, tornando-o disponível nos endpoints públicos.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Ponto de coleta aprovado com sucesso.",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = CollectionPointResponseDTO.class))),
@@ -171,7 +242,7 @@ public class AdminCollectionPointController {
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Rejeitar ponto de coleta", description = "Altera o status do ponto para REJECTED.")
+    @Operation(summary = "Rejeitar ponto de coleta", description = "Altera o status do ponto para SUSPENDED, mantendo-o indisponível nos endpoints públicos.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Ponto de coleta rejeitado com sucesso.",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = CollectionPointResponseDTO.class))),
