@@ -23,6 +23,6 @@ public class CashbackCredit extends Transaction {
     @JoinColumn(name = "collection_point_id")
     private CollectionPoint collectionPoint;
 
-    @Column(name = "cashback_percentage", precision = 5, scale = 2)
-    private BigDecimal cashbackPercentage;
+    @Column(name = "points_per_kg", precision = 5, scale = 2)
+    private BigDecimal pointsPerKg;
 }
