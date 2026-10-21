@@ -57,5 +57,5 @@ public class Disposal {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cashback_credit_id")
-    private Transaction cashbackCredit;
+    private CashbackCredit cashbackCredit;
 }

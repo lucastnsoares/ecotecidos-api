@@ -15,7 +15,7 @@ public record DisposalResponseDTO(
         @Schema(description = "ID do registro de descarte", example = "1")
         Long id,
 
-        @Schema(description = "Nome do doador", example = "Luis Carlos")
+        @Schema(description = "Nome do doador", example = "João")
         String userName,
 
         @Schema(description = "Nome do ponto de coleta onde o descarte foi feito", example = "EcoPonto Central")
@@ -30,7 +30,17 @@ public record DisposalResponseDTO(
         @Schema(description = "Status atual do descarte", example = "PENDING")
         DisposalStatus status,
 
+        @Schema(description = "Indica se este descarte gerou pontos (false se atingiu o limite diário)")
+        boolean generatedCashback,
+
+        @Schema(description = "Taxa de pontos por KG vigente no dia")
+        BigDecimal pointsPerKg,
+
+        @Schema(description = "Total de pontos ganhos nesta transação")
+        BigDecimal earnedPoints,
+
         @Schema(description = "Data e hora do registro")
         Instant createdAt
+
 ) {
 }

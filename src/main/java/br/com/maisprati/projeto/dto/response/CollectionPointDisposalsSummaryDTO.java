@@ -6,10 +6,12 @@ import java.math.BigDecimal;
 
 @Schema(description = "Resumo dos descartes de um ponto de coleta")
 public record CollectionPointDisposalsSummaryDTO(
-
-        @Schema(description = "Soma total do peso de todos os descartes registrados neste ponto (em kg)", example = "150.50")
+        @Schema(description = "Soma total do peso (kg)")
         BigDecimal totalWeightInKg,
 
-        @Schema(description = "Lista paginada dos itens descartados")
+        @Schema(description = "Soma total de pontos gerados por este ponto")
+        BigDecimal totalEarnedPoints,
+
+        @Schema(description = "Lista paginada dos itens")
         Page<DisposalResponseDTO> disposals
 ) {}
