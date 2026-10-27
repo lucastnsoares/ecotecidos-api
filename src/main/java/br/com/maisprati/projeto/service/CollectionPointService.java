@@ -289,7 +289,6 @@ public class CollectionPointService {
                         // Muda a flag para true, mas não sobe os dados editados
                         point.setHasPendingUpdate(true);
                         CollectionPoint savedPoint = collectionPointRepository.save(point);
-                        collectionPointRepository.save(point);
 
                         return mapToDTO(savedPoint);
                 } catch (JsonProcessingException e) {
