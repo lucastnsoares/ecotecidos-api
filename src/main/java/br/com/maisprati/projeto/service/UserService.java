@@ -2,16 +2,19 @@ package br.com.maisprati.projeto.service;
 
 import br.com.maisprati.projeto.dto.request.UserChangePasswordRequestDTO;
 import br.com.maisprati.projeto.dto.request.UserEditProfileRequestDTO;
-import br.com.maisprati.projeto.dto.response.CashbackBalanceResponseDTO;
-import br.com.maisprati.projeto.dto.response.UserAssociationsResponseDTO;
-import br.com.maisprati.projeto.dto.response.UserResponseDTO;
-import br.com.maisprati.projeto.dto.response.UserUpdatedResponseDTO;
+import br.com.maisprati.projeto.dto.response.*;
+import br.com.maisprati.projeto.model.entity.CollectionPoint;
+import br.com.maisprati.projeto.model.entity.Post;
 import br.com.maisprati.projeto.model.entity.User;
 import br.com.maisprati.projeto.repository.CashbackWalletRepository;
+import br.com.maisprati.projeto.repository.CollectionPointRepository;
+import br.com.maisprati.projeto.repository.PostRepository;
 import br.com.maisprati.projeto.repository.UserRepository;
 import br.com.maisprati.projeto.util.PhoneUtils;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,11 +26,14 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class UserService {
     private final UserRepository userRepository;
+    private final PostRepository postRepository;
+    private final CollectionPointRepository collectionPointRepository;
     private final CashbackWalletRepository cashbackWalletRepository;
     private final PasswordEncoder encoder;
     private final TokenService tokenService;
     private final UserValidationService userValidationService;
     private final CollectionPointService collectionPointService;
+
 
     @Transactional
     public void changePassword(User loggedInUser, UserChangePasswordRequestDTO dto) {
@@ -95,4 +101,79 @@ public class UserService {
                         .build());
     }
 
+    @Transactional(readOnly = true)
+    public Page<PostSummaryResponseDTO> getFavoritePosts(String email, Pageable pageable) {
+        return userRepository.findFavoritePostsByUserEmail(email, pageable).map(PostSummaryResponseDTO::new);
+    }
+
+    @Transactional
+    public void favoritePost(String username, Long postId) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new EntityNotFoundException("Post não encontrado."));
+        if (user.getFavoritePosts().add(post)) {
+            post.incrementFavoriteCount();
+        }
+        userRepository.saveAndFlush(user);
+    }
+
+    @Transactional
+    public void unfavoritePost(String username, Long postId) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
+        boolean removed = user.getFavoritePosts().removeIf(p -> p.getId().equals(postId));
+        if (removed) {
+            postRepository.findById(postId).ifPresent(Post::decrementFavoriteCount);
+        }
+        userRepository.saveAndFlush(user);
+    }
+
+    @Transactional(readOnly = true)
+    public Long getFavoritePostsCount(String email) {
+        return userRepository.countFavoritePosts(email);
+    }
+
+    @Transactional(readOnly = true)
+    public Boolean checkFavoritePost(String username, Long postId) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
+        return user.getFavoritePosts().stream().anyMatch(p -> p.getId().equals(postId));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CollectionPointSummaryResponseDTO> getFavoriteCollectionPoints(String email, Pageable pageable) {
+        Page<CollectionPoint> favorites = userRepository.findFavoriteCollectionPointsByEmail(email, pageable);
+        return collectionPointService.bindClothTypesToSummaryResponseDTO(favorites);
+    }
+
+    @Transactional
+    public void favoriteCollectionPoint(String username, Long collectionPointId) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
+        CollectionPoint collectionPoint = collectionPointRepository.findById(collectionPointId)
+                .orElseThrow(() -> new EntityNotFoundException("Ponto de coleta não encontrado."));
+        if (user.getFavoriteCollectionPoints().add(collectionPoint)){
+            collectionPoint.incrementFavoriteCount();
+        }
+        userRepository.saveAndFlush(user);
+    }
+
+    @Transactional
+    public void unfavoriteCollectionPoint(String username, Long collectionPointId) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
+        CollectionPoint collectionPoint = collectionPointRepository.findById(collectionPointId)
+                .orElseThrow(() -> new EntityNotFoundException("Ponto de coleta não encontrado."));
+        boolean removed = user.getFavoriteCollectionPoints().removeIf(cp -> cp.getId().equals(collectionPointId));
+        if (removed) {
+            collectionPoint.decrementFavoriteCount();
+        }
+        userRepository.saveAndFlush(user);
+    }
+
+    @Transactional
+    public Long getFavoriteCollectionPointsCount(String username) {
+        return userRepository.countFavoriteCollectionPoints(username);
+    }
 }

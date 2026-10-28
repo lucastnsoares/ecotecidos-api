@@ -181,7 +181,7 @@ public class CollectionPointService {
                 return bindClothTypesToSummaryResponseDTO(collectionPointRepository.findAll(pageable));
         }
 
-        private Page<CollectionPointSummaryResponseDTO> bindClothTypesToSummaryResponseDTO(Page<CollectionPoint> page) {
+        public Page<CollectionPointSummaryResponseDTO> bindClothTypesToSummaryResponseDTO(Page<CollectionPoint> page) {
                 if (page.isEmpty()) {
                         return Page.empty(page.getPageable());
                 }
@@ -455,6 +455,7 @@ public class CollectionPointService {
                         .status(entity.getStatus())
                         .hasPendingUpdate(entity.isHasPendingUpdate())
                         .pointPictureUrl(entity.getPointPictureUrl())
+                        .favoriteCount(entity.getFavoriteCount())
                         .address(CollectionPointResponseDTO.AddressResponseDTO.builder()
                                 .street(addr.getStreet())
                                 .number(addr.getNumber())

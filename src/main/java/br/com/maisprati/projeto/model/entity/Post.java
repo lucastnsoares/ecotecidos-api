@@ -2,10 +2,7 @@ package br.com.maisprati.projeto.model.entity;
 
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -19,9 +16,11 @@ import java.util.Set;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Post {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @Column(nullable = false, length = 150)
@@ -65,6 +64,9 @@ public class Post {
     @Column(name = "is_published", nullable = false)
     private boolean isPublished = true;
 
+    @Column(name = "favorite_count", nullable = false)
+    private Long favoriteCount = 0L;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -87,4 +89,11 @@ public class Post {
     @Column(name = "deletion_justification", length = 255)
     private String deletionJustification;
 
+    public void incrementFavoriteCount(){
+        this.favoriteCount++;
+    }
+
+    public void decrementFavoriteCount(){
+        this.favoriteCount--;
+    }
 }

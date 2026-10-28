@@ -12,6 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -55,6 +56,14 @@ public class User implements UserDetails {
 
     @Column(name = "avatar_url")
     private String avatarUrl;
+
+    @ManyToMany
+    @JoinTable(name = "users_favorite_posts", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "post_id"))
+    private Set<Post> favoritePosts = new HashSet<>();
+
+    @ManyToMany
+    @JoinTable(name = "users_favorite_collection_points", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "collection_point_id"))
+    private Set<CollectionPoint> favoriteCollectionPoints = new HashSet<>();
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -113,4 +122,33 @@ public class User implements UserDetails {
         }
         this.passwordHash = passwordEncoder.encode(rawPassword);
     }
+
+    public void favoritePost(Post post) {
+        if(this.favoritePosts.contains(post)) {
+            post.incrementFavoriteCount();
+        }
+    }
+
+    public void unfavoritePost(Post post) {
+        if(this.favoritePosts.contains(post)) {
+            post.decrementFavoriteCount();
+        }
+    }
+
+    public void favoriteCollectionPoint(CollectionPoint collectionPoint) {
+        if(this.favoriteCollectionPoints.contains(collectionPoint)) {
+            return;
+        }
+        collectionPoint.incrementFavoriteCount();
+        this.favoriteCollectionPoints.add(collectionPoint);
+    }
+
+    public void unfavoriteCollectionPoint(CollectionPoint collectionPoint) {
+        if(!this.favoriteCollectionPoints.contains(collectionPoint)) {
+            return;
+        }
+        collectionPoint.decrementFavoriteCount();
+        this.favoriteCollectionPoints.remove(collectionPoint);
+    }
+
 }
