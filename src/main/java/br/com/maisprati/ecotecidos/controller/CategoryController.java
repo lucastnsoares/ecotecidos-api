@@ -30,10 +30,9 @@ public class CategoryController {
     @GetMapping
     @Operation(summary = "Listar todas as categorias", description = "Visualização de todas as categorias de forma paginada")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Categorias listadas com sucesso",
-                    content = @Content(schema = @Schema(implementation = CategoryResponseDTO.class))),
+            @ApiResponse(responseCode = "200", description = "Categorias listadas com sucesso"),
             @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class)))
     })
     public ResponseEntity<Page<CategoryResponseDTO>> findAllCategories(
             @ParameterObject
@@ -44,14 +43,14 @@ public class CategoryController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Listar categoria por ID", description = "Visualização de uma categoria específica por ID")
+    @Operation(summary = "Buscar categoria por ID", description = "Visualização de uma categoria específica por ID")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Categoria encontrada com sucesso",
-                    content = @Content(schema = @Schema(implementation = CategoryResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = CategoryResponseDTO.class))),
             @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
             @ApiResponse(responseCode = "404", description = "Categoria não encontrada",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class)))
     })
     public ResponseEntity<CategoryResponseDTO> findCategoryById(@PathVariable Long id) {
         return ResponseEntity.ok(categoryService.findCategoryById(id));

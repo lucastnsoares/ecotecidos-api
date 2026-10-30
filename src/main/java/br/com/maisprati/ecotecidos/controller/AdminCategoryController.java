@@ -37,12 +37,11 @@ public class AdminCategoryController {
     @GetMapping
     @Operation(summary = "Listar todas as categorias", description = "Visualização de todas as categorias de forma paginada")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Categorias listadas com sucesso",
-                    content = @Content(schema = @Schema(implementation = CategoryResponseDTO.class))),
+            @ApiResponse(responseCode = "200", description = "Categorias listadas com sucesso"),
             @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
             @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class)))
     })
     public ResponseEntity<Page<CategoryResponseDTO>> findAllCategories(
             @ParameterObject
@@ -56,13 +55,13 @@ public class AdminCategoryController {
     @Operation(summary = "Buscar categoria por ID", description = "Visualização de uma categoria específica por ID")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Categoria encontrada com sucesso",
-                    content = @Content(schema = @Schema(implementation = CategoryResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = CategoryResponseDTO.class))),
             @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
             @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
             @ApiResponse(responseCode = "404", description = "Categoria não encontrada",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class)))
     })
     public ResponseEntity<CategoryResponseDTO> findCategoryById(@PathVariable Long id) {
         return ResponseEntity.ok(categoryService.findCategoryById(id));
@@ -72,13 +71,13 @@ public class AdminCategoryController {
     @Operation(summary = "Criar nova categoria", description = "Criação de uma nova categoria")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Categoria criada com sucesso",
-                    content = @Content(schema = @Schema(implementation = CategoryResponseDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Erro de validação nos campos informados",
-                    content = @Content(schema = @Schema(implementation = ValidationErrorResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = CategoryResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Erro de validação ou categoria já existente",
+                    content = @Content(mediaType = "application/json", schema = @Schema(anyOf = {ValidationErrorResponseDTO.class, ErrorResponseDTO.class}))),
             @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
             @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class)))
     })
     public ResponseEntity<CategoryResponseDTO> createCategory(@RequestBody @Valid CategoryRequestDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(categoryService.createCategory(dto));
@@ -88,17 +87,17 @@ public class AdminCategoryController {
     @Operation(summary = "Atualizar categoria por ID", description = "Atualização de uma categoria específica por ID")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Categoria atualizada com sucesso",
-                    content = @Content(schema = @Schema(implementation = CategoryResponseDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Erro de validação nos campos informados",
-                    content = @Content(schema = @Schema(implementation = ValidationErrorResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = CategoryResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Erro de validação ou categoria já existente",
+                    content = @Content(mediaType = "application/json", schema = @Schema(anyOf = {ValidationErrorResponseDTO.class, ErrorResponseDTO.class}))),
             @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
             @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
             @ApiResponse(responseCode = "404", description = "Categoria não encontrada",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class)))
     })
-    public ResponseEntity<CategoryResponseDTO> updateCategory(@PathVariable Long id, @RequestBody CategoryRequestDTO request) {
+    public ResponseEntity<CategoryResponseDTO> updateCategory(@PathVariable Long id, @RequestBody @Valid CategoryRequestDTO request) {
         return ResponseEntity.ok(categoryService.updateCategory(id, request));
     }
 
@@ -107,13 +106,13 @@ public class AdminCategoryController {
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Categoria excluída com sucesso"),
             @ApiResponse(responseCode = "400", description = "Não é possível excluir a categoria porque existem posts associados a ela",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
             @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
             @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
             @ApiResponse(responseCode = "404", description = "Categoria não encontrada",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class)))
     })
     public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
         categoryService.deleteCategory(id);

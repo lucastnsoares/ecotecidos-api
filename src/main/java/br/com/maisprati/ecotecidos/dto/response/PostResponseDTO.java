@@ -62,7 +62,7 @@ public record PostResponseDTO(
                 post.getBody(),
                 post.getCategory() != null ? new CategoryResponseDTO(post.getCategory()) : null,
                 post.getCoverImageUrl() != null && !post.getCoverImageUrl().isBlank()
-                    ? "/posts/" + post.getId() + "/cover-image"
+                    ? "/posts/" + post.getId() + "/image"
                     : null,
                 post.getCoverImageAlt(),
                 post.getTags(),

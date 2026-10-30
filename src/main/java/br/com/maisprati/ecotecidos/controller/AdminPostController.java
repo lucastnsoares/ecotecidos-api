@@ -59,16 +59,19 @@ public class AdminPostController {
     @GetMapping
     @Operation(summary = "Listar todos os posts existentes de forma resumida e paginada", description = "Retorna os posts existentes de forma resumida. Apenas usuários com role ADMIN podem acessar este endpoint.")
         @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Lista paginada de posts retornada com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Parâmetros de consulta inválidos",
-                content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Parâmetros de consulta inválidos.\", \"path\": \"/admin/posts\"}"))),
-            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-                content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/admin/posts\"}"))),
-            @ApiResponse(responseCode = "403", description = "Acesso negado: requer perfil ADMIN",
-                content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 403, \"error\": \"Forbidden\", \"message\": \"Você não possui autorização para acessar este recurso.\", \"path\": \"/admin/posts\"}")))
+            @ApiResponse(responseCode = "200", description = "Lista paginada de posts retornada com sucesso."),
+            @ApiResponse(responseCode = "400", description = "Parâmetros de consulta inválidos.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = {
+                        @ExampleObject(name = "Parâmetro inválido", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Requisição com corpo malformado ou parâmetros inválidos.\", \"path\": \"/api/v1/admin/posts\"}"),
+                        @ExampleObject(name = "Campo de ordenação inexistente", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"O parâmetro 'campoInvalido' não existe para ordenação ou consulta\", \"path\": \"/api/v1/admin/posts\"}")
+                    })),
+            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/api/v1/admin/posts\"}"))),
+            @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 403, \"error\": \"Forbidden\", \"message\": \"Você não possui autorização para acessar este recurso.\", \"path\": \"/api/v1/admin/posts\"}")))
         })
     public ResponseEntity<Page<AdminPostSummaryResponseDTO>> findAllPosts(
             @Parameter(description = "ID da categoria para filtrar os posts. Se não informado, retorna posts de todas as categorias.") 
@@ -90,17 +93,17 @@ public class AdminPostController {
     @GetMapping("/{id}")
     @Operation(summary = "Buscar um post específico por ID", description = "Retorna um post específico com base no ID fornecido, independente se publicado ou não. Apenas usuários com role ADMIN podem acessar este endpoint.")
         @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Post localizado",
-                content = @Content(schema = @Schema(implementation = AdminPostResponseDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Post não encontrado",
-                content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Post inexistente ou não disponível.\", \"path\": \"/admin/posts/99\"}"))),
-            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-                content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/admin/posts/1\"}"))),
-            @ApiResponse(responseCode = "403", description = "Acesso negado: requer perfil ADMIN",
-                content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 403, \"error\": \"Forbidden\", \"message\": \"Você não possui autorização para acessar este recurso.\", \"path\": \"/admin/posts/1\"}")))
+            @ApiResponse(responseCode = "200", description = "Post localizado com sucesso.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = AdminPostResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/api/v1/admin/posts/1\"}"))),
+            @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 403, \"error\": \"Forbidden\", \"message\": \"Você não possui autorização para acessar este recurso.\", \"path\": \"/api/v1/admin/posts/1\"}"))),
+            @ApiResponse(responseCode = "404", description = "Post não encontrado.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Post inexistente ou não disponível\", \"path\": \"/api/v1/admin/posts/99\"}")))
         })
         public ResponseEntity<AdminPostResponseDTO> findPostById(
             @Parameter(description = "ID do post", example = "1") @PathVariable Long id) {
@@ -110,20 +113,27 @@ public class AdminPostController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Criar um novo post", description = "Permite a criação de um novo post. Apenas usuários com role ADMIN podem acessar este endpoint.")
         @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Post criado com sucesso",
-                content = @Content(schema = @Schema(implementation = PostResponseDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos, categoria/tipo de tecido inexistente ou texto alternativo ausente para a imagem de capa",
-                content = @Content(schema = @Schema(anyOf = {ValidationErrorResponseDTO.class, ErrorResponseDTO.class}),
+            @ApiResponse(responseCode = "201", description = "Post criado com sucesso.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = PostResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos, arquivo de imagem inválido ou texto alternativo ausente para a imagem de capa.",
+                content = @Content(mediaType = "application/json", schema = @Schema(anyOf = {ValidationErrorResponseDTO.class, ErrorResponseDTO.class}),
                     examples = {
-                        @ExampleObject(name = "Erro de validação", value = "{\"timestamp\": \"2026-09-22T12:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Erro de validação nos campos enviados.\", \"path\": \"/admin/posts\", \"fieldErrors\": []}"),
-                        @ExampleObject(name = "Erro de regra de negócio", value = "{\"timestamp\": \"2026-09-22T12:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Categoria informada não foi encontrada.\", \"path\": \"/admin/posts\"}")
+                        @ExampleObject(name = "Erro de validação", value = "{\"timestamp\": \"2026-09-22T12:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Erro de validação nos campos enviados.\", \"path\": \"/api/v1/admin/posts\", \"fieldErrors\": [{\"field\": \"title\", \"message\": \"O título é obrigatório.\"}]}"),
+                        @ExampleObject(name = "Texto alternativo ausente", value = "{\"timestamp\": \"2026-09-22T12:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"O texto alternativo (coverImageAlt) é obrigatório quando uma imagem de capa é fornecida.\", \"path\": \"/api/v1/admin/posts\"}"),
+                        @ExampleObject(name = "Formato de imagem inválido", value = "{\"timestamp\": \"2026-09-22T12:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Formato de arquivo inválido. Formatos suportados: JPEG, PNG e WebP.\", \"path\": \"/api/v1/admin/posts\"}")
                     })),
-            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-                content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/admin/posts\"}"))),
-            @ApiResponse(responseCode = "403", description = "Acesso negado: requer perfil ADMIN",
-                content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 403, \"error\": \"Forbidden\", \"message\": \"Você não possui autorização para acessar este recurso.\", \"path\": \"/admin/posts\"}")))
+            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/api/v1/admin/posts\"}"))),
+            @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 403, \"error\": \"Forbidden\", \"message\": \"Você não possui autorização para acessar este recurso.\", \"path\": \"/api/v1/admin/posts\"}"))),
+            @ApiResponse(responseCode = "404", description = "Categoria ou tipo de tecido informado não encontrado.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = {
+                        @ExampleObject(name = "Categoria não encontrada", value = "{\"timestamp\": \"2026-09-22T12:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Categoria informada não foi encontrada.\", \"path\": \"/api/v1/admin/posts\"}"),
+                        @ExampleObject(name = "Tipo de tecido não encontrado", value = "{\"timestamp\": \"2026-09-22T12:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Os seguintes IDs de tipos de tecido não foram encontrados: [99]\", \"path\": \"/api/v1/admin/posts\"}")
+                    }))
         })
     public ResponseEntity<PostResponseDTO> createPost(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -147,20 +157,28 @@ public class AdminPostController {
     @PatchMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Atualizar um post existente", description = "Permite a atualização de um post existente. Apenas usuários com role ADMIN podem acessar este endpoint.")
         @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Post atualizado com sucesso",
-                content = @Content(schema = @Schema(implementation = PostResponseDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos, post não encontrado ou excluído, ou categoria/tipo de tecido inexistente",
-                content = @Content(schema = @Schema(anyOf = {ValidationErrorResponseDTO.class, ErrorResponseDTO.class}),
+            @ApiResponse(responseCode = "200", description = "Post atualizado com sucesso.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = PostResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos, post já excluído, arquivo de imagem inválido ou texto alternativo ausente para a imagem de capa.",
+                content = @Content(mediaType = "application/json", schema = @Schema(anyOf = {ValidationErrorResponseDTO.class, ErrorResponseDTO.class}),
                     examples = {
-                        @ExampleObject(name = "Erro de validação", value = "{\"timestamp\": \"2026-09-22T12:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Erro de validação nos campos enviados.\", \"path\": \"/admin/posts/1\", \"fieldErrors\": []}"),
-                        @ExampleObject(name = "Erro de regra de negócio", value = "{\"timestamp\": \"2026-09-22T12:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Post inexistente.\", \"path\": \"/admin/posts/1\"}")
+                        @ExampleObject(name = "Erro de validação", value = "{\"timestamp\": \"2026-09-22T12:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Erro de validação nos campos enviados.\", \"path\": \"/api/v1/admin/posts/1\", \"fieldErrors\": [{\"field\": \"title\", \"message\": \"O título deve ter entre 5 e 150 caracteres.\"}]}"),
+                        @ExampleObject(name = "Post excluído", value = "{\"timestamp\": \"2026-09-22T12:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Não é possível atualizar um post que foi excluído.\", \"path\": \"/api/v1/admin/posts/1\"}"),
+                        @ExampleObject(name = "Texto alternativo ausente", value = "{\"timestamp\": \"2026-09-22T12:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"O texto alternativo (coverImageAlt) é obrigatório quando uma imagem de capa é fornecida.\", \"path\": \"/api/v1/admin/posts/1\"}")
                     })),
-            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-                content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/admin/posts/1\"}"))),
-            @ApiResponse(responseCode = "403", description = "Acesso negado: requer perfil ADMIN",
-                content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 403, \"error\": \"Forbidden\", \"message\": \"Você não possui autorização para acessar este recurso.\", \"path\": \"/admin/posts/1\"}")))
+            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/api/v1/admin/posts/1\"}"))),
+            @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 403, \"error\": \"Forbidden\", \"message\": \"Você não possui autorização para acessar este recurso.\", \"path\": \"/api/v1/admin/posts/1\"}"))),
+            @ApiResponse(responseCode = "404", description = "Post, categoria ou tipo de tecido não encontrado.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = {
+                        @ExampleObject(name = "Post não encontrado", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Post inexistente.\", \"path\": \"/api/v1/admin/posts/99\"}"),
+                        @ExampleObject(name = "Categoria não encontrada", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Categoria informada não foi encontrada.\", \"path\": \"/api/v1/admin/posts/1\"}"),
+                        @ExampleObject(name = "Tipo de tecido não encontrado", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Os seguintes IDs de tipos de tecido não foram encontrados: [99]\", \"path\": \"/api/v1/admin/posts/1\"}")
+                    }))
         })
     public ResponseEntity<PostResponseDTO> updatePost(
             @Parameter(description = "ID do post", example = "1") @PathVariable Long id,
@@ -170,23 +188,29 @@ public class AdminPostController {
                     )
                 )
             @Valid @RequestPart("data") PostEditRequestDTO dto,
-            @Parameter(description = "Imagem de capa do post", example = "jeans-upcycling.jpg") @RequestPart (value = "image", required = false) MultipartFile image) {
+            @RequestPart (value = "image", required = false) MultipartFile image) {
         return ResponseEntity.ok(postService.updatePost(id, dto, image));
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Excluir um post existente", description = "Permite a exclusão de um post existente. O post é marcado como excluído em vez de ser removido completamente. Apenas usuários com role ADMIN podem acessar este endpoint.")
         @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Post excluído com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Post não encontrado",
-                content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Post inexistente.\", \"path\": \"/admin/posts/99\"}"))),
-            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-                content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/admin/posts/1\"}"))),
-            @ApiResponse(responseCode = "403", description = "Acesso negado: requer perfil ADMIN",
-                content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 403, \"error\": \"Forbidden\", \"message\": \"Você não possui autorização para acessar este recurso.\", \"path\": \"/admin/posts/1\"}")))
+            @ApiResponse(responseCode = "204", description = "Post excluído com sucesso."),
+            @ApiResponse(responseCode = "400", description = "Post já se encontra excluído ou justificativa inválida.",
+                content = @Content(mediaType = "application/json", schema = @Schema(anyOf = {ValidationErrorResponseDTO.class, ErrorResponseDTO.class}),
+                    examples = {
+                        @ExampleObject(name = "Erro de validação", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Erro de validação nos campos enviados.\", \"path\": \"/api/v1/admin/posts/1\", \"fieldErrors\": [{\"field\": \"justification\", \"message\": \"A justificativa deve ter entre 10 e 255 caracteres.\"}]}"),
+                        @ExampleObject(name = "Post já excluído", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Post já deletado anteriormente\", \"path\": \"/api/v1/admin/posts/1\"}")
+                    })),
+            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/api/v1/admin/posts/1\"}"))),
+            @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 403, \"error\": \"Forbidden\", \"message\": \"Você não possui autorização para acessar este recurso.\", \"path\": \"/api/v1/admin/posts/1\"}"))),
+            @ApiResponse(responseCode = "404", description = "Post não encontrado.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Post inexistente.\", \"path\": \"/api/v1/admin/posts/99\"}")))
         })
         public ResponseEntity<Void> deletePost(
             @Parameter(description = "ID do post", example = "1")
@@ -200,15 +224,23 @@ public class AdminPostController {
     }
 
     @GetMapping("/{id}/cover-image")
-    @Operation(summary = "Obtem a imagem de capa do post", description = "Retorna o arquivo binário da imagem do post. Apenas ADMIN.")
+    @Operation(summary = "Obtem a imagem de capa do post", description = "Retorna o arquivo de imagem do post. Apenas administradores.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Imagem retornada com sucesso"),
-        @ApiResponse(responseCode = "400", description = "Post inexistente, excluído ou sem imagem",
-            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
-        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
-        @ApiResponse(responseCode = "403", description = "Acesso negado: requer perfil ADMIN",
-            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+        @ApiResponse(responseCode = "200", description = "Imagem retornada com sucesso.",
+            content = @Content(mediaType = "image/*")),
+        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/api/v1/admin/posts/1/cover-image\"}"))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 403, \"error\": \"Forbidden\", \"message\": \"Você não possui autorização para acessar este recurso.\", \"path\": \"/api/v1/admin/posts/1/cover-image\"}"))),
+        @ApiResponse(responseCode = "404", description = "Post não encontrado, excluído, sem imagem cadastrada ou arquivo de imagem inexistente no servidor.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                examples = {
+                    @ExampleObject(name = "Post não encontrado ou excluído", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Post inexistente ou não disponível.\", \"path\": \"/api/v1/admin/posts/99/cover-image\"}"),
+                    @ExampleObject(name = "Post sem imagem", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"O post informado não possui imagem.\", \"path\": \"/api/v1/admin/posts/1/cover-image\"}"),
+                    @ExampleObject(name = "Arquivo não encontrado no servidor", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Arquivo de imagem não encontrado no servidor.\", \"path\": \"/api/v1/admin/posts/1/cover-image\"}")
+                }))
     })
     public ResponseEntity<Resource> getPostImage(
             @Parameter(description = "ID do post", example = "1") @PathVariable Long id) throws IOException {

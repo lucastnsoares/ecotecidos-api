@@ -41,16 +41,18 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 public class PostController {
     private final PostService postService;
 
-    @Operation(summary = "Listar todos os posts publicados de forma resumida e paginada", description = "Retorna os posts publicados de forma resumida. Usuários autenticados podem acessar este endpoint")
+    @Operation(summary = "Listar todos os posts publicados de forma resumida e paginada", description = "Retorna os posts publicados de forma resumida. Usuários autenticados podem acessar este endpoint.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Lista paginada de posts publicados retornada com sucesso",
-            content = @Content(schema = @Schema(implementation = Page.class))),
-        @ApiResponse(responseCode = "400", description = "Parâmetros de consulta inválidos",
-            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"O parâmetro informado é inválido.\", \"path\": \"/posts\"}"))),
-        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/posts\"}")))
+        @ApiResponse(responseCode = "200", description = "Lista paginada de posts publicados retornada com sucesso."),
+        @ApiResponse(responseCode = "400", description = "Parâmetros de consulta inválidos.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                examples = {
+                    @ExampleObject(name = "Parâmetro inválido", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Requisição com corpo malformado ou parâmetros inválidos.\", \"path\": \"/api/v1/posts\"}"),
+                    @ExampleObject(name = "Campo de ordenação inexistente", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"O parâmetro 'campoInvalido' não existe para ordenação ou consulta\", \"path\": \"/api/v1/posts\"}")
+                })),
+        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/api/v1/posts\"}")))
     })
     @GetMapping
     public ResponseEntity<Page<PostSummaryResponseDTO>> findAllByPublishedTrue(
@@ -73,16 +75,16 @@ public class PostController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Retornar um post específico", description = "Retorna um post específico. Usuários autenticados podem acessar este endpoint")
+    @Operation(summary = "Retornar um post específico", description = "Retorna os detalhes de um post publicado específico. Usuários autenticados podem acessar este endpoint.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Post publicado localizado",
-            content = @Content(schema = @Schema(implementation = PostResponseDTO.class))),
-        @ApiResponse(responseCode = "400", description = "Post inexistente ou não disponível",
-            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Post inexistente ou não disponível.\", \"path\": \"/posts/99\"}"))),
-        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
-                examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/posts/1\"}")))
+        @ApiResponse(responseCode = "200", description = "Post publicado localizado com sucesso.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = PostResponseDTO.class))),
+        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/api/v1/posts/1\"}"))),
+        @ApiResponse(responseCode = "404", description = "Post inexistente ou não publicado.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Post inexistente ou não disponível.\", \"path\": \"/api/v1/posts/99\"}")))
     })
     public ResponseEntity<PostResponseDTO> findPostByIdAndIsPublishedTrue(
         @Parameter(description = "ID do post publicado", example = "1") @PathVariable Long id) {
@@ -90,15 +92,20 @@ public class PostController {
     }
 
     @GetMapping("/{id}/image")
-    @Operation(summary = "Obter imagem do post publicado", description = "Retorna o arquivo binário da imagem do post.")
+    @Operation(summary = "Obter imagem do post publicado", description = "Retorna o arquivo de imagem do post publicado.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Imagem retornada com sucesso"),
-        @ApiResponse(responseCode = "400", description = "Post inexistente, não publicado ou sem imagem",
-            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
-        @ApiResponse(responseCode = "401", description = "Token ausente ou inválido",
-            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
-        @ApiResponse(responseCode = "403", description = "Acesso negado",
-            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+        @ApiResponse(responseCode = "200", description = "Imagem retornada com sucesso.",
+            content = @Content(mediaType = "image/*")),
+        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/api/v1/posts/1/image\"}"))),
+        @ApiResponse(responseCode = "404", description = "Post inexistente, não publicado, sem imagem de capa ou arquivo de imagem não encontrado.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                examples = {
+                    @ExampleObject(name = "Post inexistente ou não publicado", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Post inexistente ou não publicado.\", \"path\": \"/api/v1/posts/99/image\"}"),
+                    @ExampleObject(name = "Post sem imagem de capa", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Post não possui imagem de capa.\", \"path\": \"/api/v1/posts/1/image\"}"),
+                    @ExampleObject(name = "Imagem não encontrada no servidor", value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Imagem não encontrada no servidor.\", \"path\": \"/api/v1/posts/1/image\"}")
+                }))
     })
     public ResponseEntity<Resource> getPublishedPostImage(@PathVariable Long id) throws IOException {
         Resource imageResource = postService.findImageByPostIdAndIsPublishedTrue(id);

@@ -87,15 +87,26 @@ public class AdminUserController {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = UserResponseDTO.class))),
             @ApiResponse(responseCode = "400", description = "Campos inválidos ou e-mail/documento já cadastrado",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(anyOf = {ValidationErrorResponseDTO.class, ErrorResponseDTO.class}),
-                            examples = @ExampleObject(value = """
-                            {
-                              "timestamp": "2026-08-27T00:00:00Z",
-                              "status": 400,
-                              "error": "Bad Request",
-                              "message": "Documento já cadastrado.",
-                              "path": "/api/v1/admin/users"
-                            }
-                            """))),
+                            examples = {
+                                    @ExampleObject(name = "Documento já cadastrado", value = """
+                                    {
+                                      "timestamp": "2026-08-27T00:00:00Z",
+                                      "status": 400,
+                                      "error": "Bad Request",
+                                      "message": "Documento já cadastrado.",
+                                      "path": "/api/v1/admin/users"
+                                    }
+                                    """),
+                                    @ExampleObject(name = "E-mail já utilizado", value = """
+                                    {
+                                      "timestamp": "2026-08-27T00:00:00Z",
+                                      "status": 400,
+                                      "error": "Bad Request",
+                                      "message": "E-mail já utilizado.",
+                                      "path": "/api/v1/admin/users"
+                                    }
+                                    """)
+                            })),
             @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class),
                             examples = @ExampleObject(value = """
@@ -173,15 +184,16 @@ public class AdminUserController {
         return ResponseEntity.status(HttpStatus.OK).body(user);
     }
 
-    @Operation(summary = "Obter avatar de usuário", description = "Retorna a imagem de perfil de qualquer usuário. Disponível somente para administradores.")
+    @Operation(summary = "Obter avatar de usuário", description = "Retorna o arquivo de imagem de perfil de qualquer usuário. Disponível somente para administradores.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Imagem retornada com sucesso"),
-            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
-            @ApiResponse(responseCode = "403", description = "Acesso negado: requer perfil ADMIN",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
-            @ApiResponse(responseCode = "404", description = "Usuário não encontrado ou sem imagem",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+            @ApiResponse(responseCode = "200", description = "Imagem retornada com sucesso.",
+                    content = @Content(mediaType = "image/*")),
+            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado, não possui imagem de perfil ou arquivo inexistente no servidor.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class)))
     })
     @GetMapping("/users/{id}/avatar")
     public ResponseEntity<Resource> getUserAvatar(@PathVariable Long id) throws IOException {

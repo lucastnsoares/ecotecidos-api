@@ -54,8 +54,12 @@ public class CollectionPointController {
         @GetMapping("/{id}")
         @Operation(summary = "Buscar ponto de coleta por ID", description = "Permite buscar um ponto de coleta ativo pelo seu ID, exibindo-o de forma detalhada.")
         @ApiResponses({
-                        @ApiResponse(responseCode = "200", description = "Ponto de coleta encontrado com sucesso.", content = @Content(schema = @Schema(implementation = CollectionPointResponseDTO.class))),
-                        @ApiResponse(responseCode = "404", description = "Ponto de coleta não encontrado ou inativo.", content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+                        @ApiResponse(responseCode = "200", description = "Ponto de coleta encontrado com sucesso.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = CollectionPointResponseDTO.class))),
+                        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
+                        @ApiResponse(responseCode = "404", description = "Ponto de coleta não encontrado ou inativo.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class)))
         })
         public ResponseEntity<CollectionPointResponseDTO> getCollectionPointByIdAndStatusActiveEntity(
                         @PathVariable Long id) {
@@ -63,10 +67,13 @@ public class CollectionPointController {
                 return ResponseEntity.ok(response);
         }
 
-        @Operation(summary = "Listar pontos ativos no mapa", description = "SCRUM-179: Retorna apenas pontos de coleta com status ACTIVE.")
+        @Operation(summary = "Listar pontos ativos", description = "Retorna uma lista paginada de pontos de coleta com status ativo.")
         @ApiResponses({
-                        @ApiResponse(responseCode = "200", description = "Pontos de coleta ativos listados com sucesso.", content = @Content(schema = @Schema(implementation = CollectionPointResponseDTO.class))),
-                        @ApiResponse(responseCode = "400", description = "Parâmetros de paginação inválidos.", content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+                        @ApiResponse(responseCode = "200", description = "Pontos de coleta ativos listados com sucesso."),
+                        @ApiResponse(responseCode = "400", description = "Parâmetros de paginação inválidos.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
+                        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class)))
         })
         @GetMapping
         public ResponseEntity<Page<CollectionPointResponseDTO>> getPublicApprovedPoints(
@@ -75,26 +82,32 @@ public class CollectionPointController {
         }
 
         @GetMapping("/nearby")
-        @Operation(summary = "Buscar pontos de coleta mais próximos por raio de distância")
+        @Operation(summary = "Buscar pontos de coleta mais próximos por raio de distância", description = "Retorna pontos de coleta ativos ordenados por proximidade a partir das coordenadas geográficas informadas.")
         @ApiResponses({
-                        @ApiResponse(responseCode = "200", description = "Pontos de coleta próximos encontrados com sucesso.", content = @Content(schema = @Schema(implementation = CollectionPointDistanceResponseDTO.class))),
-                        @ApiResponse(responseCode = "400", description = "Parâmetros de localização, raio ou paginação inválidos.", content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+                        @ApiResponse(responseCode = "200", description = "Pontos de coleta próximos encontrados com sucesso."),
+                        @ApiResponse(responseCode = "400", description = "Parâmetros de localização, raio ou paginação inválidos.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
+                        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class)))
         })
         public ResponseEntity<Page<CollectionPointDistanceResponseDTO>> findNearby(
                         @Parameter(description = "Latitude do usuário", example = "-19.9167", required = true) @RequestParam BigDecimal lat,
                         @Parameter(description = "Longitude do usuário", example = "-43.9345", required = true) @RequestParam BigDecimal lng,
                         @Parameter(description = "Raio máximo de busca em km (padrão 15km)", example = "10.0") @RequestParam(required = false, defaultValue = "15.0") Double radiusKm,
-                        @Parameter(description = "IDs dos tipos de tecidos a serem considerados na busca", example = "[1, 2, 3]") @RequestParam(required = false) List<Long> clothTypeIds,
+                        @Parameter(description = "IDs dos tipos de tecidos aceitos para filtrar", example = "1") @RequestParam(required = false) List<Long> clothTypeIds,
                         @ParameterObject @PageableDefault(page = 0, size = 10) Pageable pageable) {
                 return ResponseEntity.ok(collectionPointService.findNearby(lat, lng, radiusKm, clothTypeIds, pageable));
         }
 
         @GetMapping("/{id}/image")
-        @Operation(summary = "Obter imagem do ponto de coleta", description = "Retorna a imagem de um ponto de coleta ativo.")
+        @Operation(summary = "Obter imagem do ponto de coleta", description = "Retorna o arquivo de imagem de um ponto de coleta ativo.")
         @ApiResponses({
-                        @ApiResponse(responseCode = "200", description = "Imagem retornada com sucesso"),
-                        @ApiResponse(responseCode = "400", description = "Ponto inexistente, inativo ou sem imagem", content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
-                        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido", content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+                        @ApiResponse(responseCode = "200", description = "Imagem retornada com sucesso.",
+                                content = @Content(mediaType = "image/*")),
+                        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
+                        @ApiResponse(responseCode = "404", description = "Ponto de coleta não encontrado, inativo, não possui imagem cadastrada ou arquivo inexistente no servidor.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class)))
         })
         public ResponseEntity<Resource> getCollectionPointImage(@PathVariable Long id) throws IOException {
                 Resource imageResource = collectionPointService.findImageByCollectionPointId(id);
@@ -112,13 +125,18 @@ public class CollectionPointController {
 
         @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
         @PreAuthorize("isAuthenticated()")
-        @Operation(summary = "Atualizar Ponto de Coleta", description = "Gerentes e administradores enviam alterações para aprovação administrativa. A alteração não é aplicada imediatamente ao ponto.")
+        @Operation(summary = "Atualizar Ponto de Coleta", description = "Gerentes e administradores enviam alterações para aprovação administrativa. A alteração cria uma solicitação pendente e não é aplicada imediatamente.")
         @ApiResponses({
-                        @ApiResponse(responseCode = "200", description = "Ponto de coleta atualizado ou solicitação criada com sucesso.", content = @Content(schema = @Schema(implementation = CollectionPointResponseDTO.class))),
-                        @ApiResponse(responseCode = "400", description = "Erro de validação nos campos informados.", content = @Content(schema = @Schema(implementation = ValidationErrorResponseDTO.class))),
-                        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.", content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
-                        @ApiResponse(responseCode = "403", description = "Acesso negado para o usuário atual.", content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
-                        @ApiResponse(responseCode = "404", description = "Ponto de coleta não encontrado.", content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+                        @ApiResponse(responseCode = "200", description = "Solicitação de atualização criada com sucesso.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = CollectionPointResponseDTO.class))),
+                        @ApiResponse(responseCode = "400", description = "Erro de validação ou tipos de tecidos inválidos.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(anyOf = {ValidationErrorResponseDTO.class, ErrorResponseDTO.class}))),
+                        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
+                        @ApiResponse(responseCode = "403", description = "Acesso negado. Apenas gerentes do ponto ou administradores podem solicitar alterações.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class))),
+                        @ApiResponse(responseCode = "404", description = "Ponto de coleta não encontrado.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class)))
         })
         public ResponseEntity<CollectionPointResponseDTO> updateCollectionPoint(
                         @PathVariable Long id,
@@ -133,12 +151,14 @@ public class CollectionPointController {
 
         @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
         @PreAuthorize("isAuthenticated()")
-        @Operation(summary = "Criar Ponto de Coleta", description = "Solicita a criação de um novo ponto de coleta.")
+        @Operation(summary = "Criar Ponto de Coleta", description = "Solicita a criação de um novo ponto de coleta para posterior aprovação administrativa.")
         @ApiResponses({
-                        @ApiResponse(responseCode = "202", description = "Solicitação de criação recebida com sucesso.", content = @Content(schema = @Schema(implementation = CollectionPointResponseDTO.class))),
-                        @ApiResponse(responseCode = "400", description = "Erro de validação nos campos informados.", content = @Content(schema = @Schema(implementation = ValidationErrorResponseDTO.class))),
-                        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.", content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
-                        @ApiResponse(responseCode = "403", description = "Acesso negado para o usuário atual.", content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+                        @ApiResponse(responseCode = "202", description = "Solicitação de criação recebida com sucesso.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = CollectionPointResponseDTO.class))),
+                        @ApiResponse(responseCode = "400", description = "Erro de validação nos campos informados ou tipos de tecidos inválidos.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(anyOf = {ValidationErrorResponseDTO.class, ErrorResponseDTO.class}))),
+                        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class)))
         })
         public ResponseEntity<CollectionPointResponseDTO> createCollectionPoint(
                         @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(encoding = @Encoding(name = "data", contentType = "application/json"))) @RequestPart("data") @Valid CollectionPointCreateRequestDTO dto,

@@ -20,12 +20,20 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 @RestController
 @RequestMapping("/user")
@@ -59,15 +67,32 @@ public class UserController {
     @Operation(summary = "Alterar senha da conta", description = "Modifica a senha do usuário após verificação da senha atual.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Senha alterada com sucesso"),
-            @ApiResponse(responseCode = "400", description = "Senha atual incorreta ou nova senha fora do padrão", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class), examples = @ExampleObject(value = """
-                    {
-                      "timestamp": "2026-08-27T00:00:00Z",
-                      "status": 400,
-                      "error": "Bad Request",
-                      "message": "A senha atual informada está incorreta.",
-                      "path": "/api/v1/user/password"
-                    }
-                    """))),
+            @ApiResponse(responseCode = "400", description = "Senha atual incorreta ou nova senha fora do padrão",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(anyOf = {ValidationErrorResponseDTO.class, ErrorResponseDTO.class}),
+                            examples = {
+                                    @ExampleObject(name = "Senha atual incorreta", value = """
+                                    {
+                                      "timestamp": "2026-08-27T00:00:00Z",
+                                      "status": 400,
+                                      "error": "Bad Request",
+                                      "message": "A senha atual informada está incorreta.",
+                                      "path": "/api/v1/user/password"
+                                    }
+                                    """),
+                                    @ExampleObject(name = "Nova senha fora do padrão", value = """
+                                    {
+                                      "timestamp": "2026-08-27T00:00:00Z",
+                                      "status": 400,
+                                      "error": "Bad Request",
+                                      "message": "Erro de validação nos campos enviados.",
+                                      "path": "/api/v1/user/password",
+                                      "fieldErrors": [
+                                        { "field": "newPassword", "message": "A nova senha deve ter no mínimo 6 caracteres." }
+                                      ]
+                                    }
+                                    """)
+                            })),
             @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class), examples = @ExampleObject(value = """
                     {
                       "timestamp": "2026-08-27T00:00:00Z",
@@ -86,7 +111,7 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Editar perfil", description = "Atualiza nome, e-mail e telefone do usuário logado e retorna o novo token JWT.")
+    @Operation(summary = "Editar perfil", description = "Atualiza nome, e-mail, telefone e opção de remoção de avatar do usuário logado e retorna o novo token JWT.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Perfil atualizado com sucesso", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = UserUpdatedResponseDTO.class))),
             @ApiResponse(responseCode = "400", description = "Campos inválidos ou e-mail já cadastrado", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(anyOf = {
@@ -131,6 +156,49 @@ public class UserController {
         return ResponseEntity.ok(userUpdated);
     }
 
+    @Operation(summary = "Obter avatar da conta", description = "Retorna o arquivo de imagem de perfil do usuário logado.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Imagem retornada com sucesso.",
+                    content = @Content(mediaType = "image/*")),
+            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado, não possui imagem de perfil ou arquivo inexistente no servidor.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class)))
+    })
+    @GetMapping("/avatar")
+    public ResponseEntity<Resource> getAvatar(@AuthenticationPrincipal User loggedInUser) throws IOException {
+        Resource avatar = userService.getAvatar(loggedInUser);
+        String contentType = Files.probeContentType(Paths.get(avatar.getURI()));
+        if (contentType == null) {
+            contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + avatar.getFilename() + "\"")
+                .cacheControl(CacheControl.noStore())
+                .body(avatar);
+    }
+
+    @Operation(summary = "Atualizar avatar da conta", description = "Faz upload da nova imagem de perfil do usuário logado.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Avatar atualizado com sucesso",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = UserUpdatedResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Arquivo de imagem inválido ou dimensões excedidas",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @ApiResponse(responseCode = "413", description = "Arquivo excede o limite máximo permitido (5MB)",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class)))
+    })
+    @PutMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<UserUpdatedResponseDTO> uploadAvatar(
+            @RequestPart("image") MultipartFile image,
+            @AuthenticationPrincipal User loggedInUser) {
+        var userUpdated = userService.editUserData(loggedInUser, new UserEditProfileRequestDTO(null, null, null, false), image);
+        return ResponseEntity.ok(userUpdated);
+    }
+
     @GetMapping("/associations")
     @Operation(summary = "Listar associações do usuário", description = "Retorna lista de pontos de coleta associados ao usuário e seus respectivos papéis.")
     @ApiResponses({
@@ -141,7 +209,7 @@ public class UserController {
                       "status": 401,
                       "error": "Unauthorized",
                       "message": "Token de autenticação ausente ou inválido.",
-                      "path": "/api/v1/user/user-associations"
+                      "path": "/api/v1/user/associations"
                     }
                     """)))
     })
@@ -154,7 +222,7 @@ public class UserController {
     @GetMapping("/favorite-posts")
     @Operation(summary = "Listar posts favoritos", description = "Retorna, de forma paginada, os posts favoritos do usuário autenticado.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Posts favoritos recuperados com sucesso", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = PostSummaryResponseDTO.class))),
+            @ApiResponse(responseCode = "200", description = "Posts favoritos recuperados com sucesso"),
             @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class), examples = @ExampleObject(value = """
                     {
                       "timestamp": "2026-08-27T00:00:00Z",
@@ -208,7 +276,7 @@ public class UserController {
     })
     public ResponseEntity<Boolean> checkFavoritePost(
             @AuthenticationPrincipal UserDetails userDetails,
-            @ParameterObject @PathVariable Long postId) {
+            @PathVariable Long postId) {
         Boolean response = userService.checkFavoritePost(userDetails.getUsername(), postId);
         return ResponseEntity.ok(response);
     }
@@ -238,7 +306,7 @@ public class UserController {
     })
     public ResponseEntity<Void> favoritePost(
             @AuthenticationPrincipal UserDetails userDetails,
-            @ParameterObject @PathVariable Long postId) {
+            @PathVariable Long postId) {
         userService.favoritePost(userDetails.getUsername(), postId);
         return ResponseEntity.noContent().build();
     }
@@ -268,16 +336,15 @@ public class UserController {
     })
     public ResponseEntity<Void> unfavoritePost(
             @AuthenticationPrincipal UserDetails userDetails,
-            @ParameterObject
             @PathVariable Long postId) {
         userService.unfavoritePost(userDetails.getUsername(), postId);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/favorite-collection-points")
-    @Operation(summary = "Listar pontos de coleta favoritos", description = "Retorna, de forma paginada, os pontos de coleta favoritos do usuário autenticado.")
+    @Operation(summary = "Listar pontos de coleta favoritos", description = "Retorna, de forma paginada, os pontos de coleta favoritos do usuário autenticado (ordenação padrão por nome decrescente).")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Pontos de coleta favoritos recuperados com sucesso", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = CollectionPointSummaryResponseDTO.class))),
+            @ApiResponse(responseCode = "200", description = "Pontos de coleta favoritos recuperados com sucesso"),
             @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class), examples = @ExampleObject(value = """
                     {
                       "timestamp": "2026-08-27T00:00:00Z",
@@ -339,7 +406,6 @@ public class UserController {
     })
     public ResponseEntity<Void> favoriteCollectionPoint(
             @AuthenticationPrincipal UserDetails userDetails,
-            @ParameterObject
             @PathVariable Long collectionPointId) {
         userService.favoriteCollectionPoint(userDetails.getUsername(), collectionPointId);
         return ResponseEntity.noContent().build();
@@ -370,7 +436,6 @@ public class UserController {
     })
     public ResponseEntity<Void> unfavoriteCollectionPoint(
             @AuthenticationPrincipal UserDetails userDetails,
-            @ParameterObject
             @PathVariable Long collectionPointId) {
         userService.unfavoriteCollectionPoint(userDetails.getUsername(), collectionPointId);
         return ResponseEntity.noContent().build();

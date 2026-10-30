@@ -55,15 +55,26 @@ public class AuthController {
                             """))),
             @ApiResponse(responseCode = "401", description = "Credenciais inválidas ou conta inativa",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class),
-                            examples = @ExampleObject(value = """
-                            {
-                              "timestamp": "2026-08-27T00:00:00Z",
-                              "status": 401,
-                              "error": "Unauthorized",
-                              "message": "Usuário ou senha inválidos.",
-                              "path": "/api/v1/auth/login"
-                            }
-                            """)))
+                            examples = {
+                                    @ExampleObject(name = "Credenciais inválidas", value = """
+                                    {
+                                      "timestamp": "2026-08-27T00:00:00Z",
+                                      "status": 401,
+                                      "error": "Unauthorized",
+                                      "message": "Usuário ou senha inválidos.",
+                                      "path": "/api/v1/auth/login"
+                                    }
+                                    """),
+                                    @ExampleObject(name = "Conta inativa", value = """
+                                    {
+                                      "timestamp": "2026-08-27T00:00:00Z",
+                                      "status": 401,
+                                      "error": "Unauthorized",
+                                      "message": "Conta inativa.",
+                                      "path": "/api/v1/auth/login"
+                                    }
+                                    """)
+                            }))
     })
     @PostMapping("/login")
     public ResponseEntity<AuthTokenResponseDTO> doLogin(@RequestBody @Valid AuthLoginRequestDTO dto) {
@@ -100,10 +111,23 @@ public class AuthController {
     @Operation(summary = "Checar token de recuperação", description = "Verifica se o token recebido por e-mail é válido e ainda não expirou.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Token válido"),
-            @ApiResponse(responseCode = "404", description = "Token inválido ou expirado")
+            @ApiResponse(responseCode = "400", description = "Parâmetro token ausente",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class),
+                            examples = @ExampleObject(value = """
+                            {
+                              "timestamp": "2026-08-27T00:00:00Z",
+                              "status": 400,
+                              "error": "Bad Request",
+                              "message": "Requisição com corpo malformado ou parâmetros inválidos.",
+                              "path": "/api/v1/auth/forgot-password/check-token"
+                            }
+                            """))),
+            @ApiResponse(responseCode = "404", description = "Token inválido ou expirado (retorno sem corpo)")
     })
     @GetMapping("/forgot-password/check-token")
-    public ResponseEntity<Void> checkPasswordResetToken(@RequestParam @Valid String token) {
+    public ResponseEntity<Void> checkPasswordResetToken(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Token UUID recebido no e-mail", required = true, example = "c8b417e2-7634-4062-81f1-3cf93f9ef21b")
+            @RequestParam String token) {
         if (passwordResetTokenService.checkPasswordResetToken(token)) {
             return ResponseEntity.ok().build();
         }
@@ -114,16 +138,31 @@ public class AuthController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Senha alterada com sucesso"),
             @ApiResponse(responseCode = "400", description = "Token expirado, inválido ou senha fora do padrão",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResponseDTO.class),
-                            examples = @ExampleObject(value = """
-                            {
-                              "timestamp": "2026-08-27T00:00:00Z",
-                              "status": 400,
-                              "error": "Bad Request",
-                              "message": "Token inválido ou expirado.",
-                              "path": "/api/v1/auth/forgot-password/reset"
-                            }
-                            """)))
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(anyOf = {ValidationErrorResponseDTO.class, ErrorResponseDTO.class}),
+                            examples = {
+                                    @ExampleObject(name = "Token inválido ou expirado", value = """
+                                    {
+                                      "timestamp": "2026-08-27T00:00:00Z",
+                                      "status": 400,
+                                      "error": "Bad Request",
+                                      "message": "Token inválido.",
+                                      "path": "/api/v1/auth/forgot-password/reset"
+                                    }
+                                    """),
+                                    @ExampleObject(name = "Erro de validação de senha", value = """
+                                    {
+                                      "timestamp": "2026-08-27T00:00:00Z",
+                                      "status": 400,
+                                      "error": "Bad Request",
+                                      "message": "Erro de validação nos campos enviados.",
+                                      "path": "/api/v1/auth/forgot-password/reset",
+                                      "fieldErrors": [
+                                        { "field": "newPassword", "message": "A nova senha deve ter no mínimo 6 caracteres." }
+                                      ]
+                                    }
+                                    """)
+                            }))
     })
     @PostMapping("/forgot-password/reset")
     public ResponseEntity<Void> resetPassword(@RequestBody @Valid AuthPasswordResetRequestDTO dto) {

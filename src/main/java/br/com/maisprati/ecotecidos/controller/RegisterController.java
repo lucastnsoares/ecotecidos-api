@@ -30,9 +30,43 @@ public class RegisterController {
     @Operation(summary = "Registrar doador", description = "Cria uma nova conta de usuário público com o perfil DOADOR.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Doador cadastrado com sucesso",
-                    content = @Content(schema = @Schema(implementation = UserSummaryResponseDTO.class))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserSummaryResponseDTO.class))),
             @ApiResponse(responseCode = "400", description = "Inconsistência nos campos enviados ou duplicidade de e-mail/documento",
-                    content = @Content(schema = @Schema(anyOf = {ValidationErrorResponseDTO.class, ErrorResponseDTO.class})))
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(anyOf = {ValidationErrorResponseDTO.class, ErrorResponseDTO.class}),
+                            examples = {
+                                    @io.swagger.v3.oas.annotations.media.ExampleObject(name = "Erro de validação", value = """
+                                    {
+                                      "timestamp": "2026-08-27T00:00:00Z",
+                                      "status": 400,
+                                      "error": "Bad Request",
+                                      "message": "Erro de validação nos campos enviados.",
+                                      "path": "/api/v1/register",
+                                      "fieldErrors": [
+                                        { "field": "email", "message": "Formato de e-mail inválido." },
+                                        { "field": "document", "message": "Documento inválido. Informe um CPF ou CNPJ válido." }
+                                      ]
+                                    }
+                                    """),
+                                    @io.swagger.v3.oas.annotations.media.ExampleObject(name = "Documento já cadastrado", value = """
+                                    {
+                                      "timestamp": "2026-08-27T00:00:00Z",
+                                      "status": 400,
+                                      "error": "Bad Request",
+                                      "message": "Documento já cadastrado.",
+                                      "path": "/api/v1/register"
+                                    }
+                                    """),
+                                    @io.swagger.v3.oas.annotations.media.ExampleObject(name = "E-mail já utilizado", value = """
+                                    {
+                                      "timestamp": "2026-08-27T00:00:00Z",
+                                      "status": 400,
+                                      "error": "Bad Request",
+                                      "message": "E-mail já utilizado.",
+                                      "path": "/api/v1/register"
+                                    }
+                                    """)
+                            }))
     })
     @PostMapping
     public ResponseEntity<UserSummaryResponseDTO> registerUser(@RequestBody @Valid UserRegisterRequestDTO dto) {
