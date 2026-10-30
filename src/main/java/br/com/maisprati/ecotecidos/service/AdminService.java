@@ -1,0 +1,60 @@
+package br.com.maisprati.ecotecidos.service;
+
+import br.com.maisprati.ecotecidos.dto.request.UserUpdateRequestDTO;
+import br.com.maisprati.ecotecidos.dto.response.UserResponseDTO;
+import br.com.maisprati.ecotecidos.model.entity.User;
+import br.com.maisprati.ecotecidos.repository.UserRepository;
+import br.com.maisprati.ecotecidos.util.PhoneUtils;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class AdminService {
+    private final UserRepository userRepository;
+    private final UserValidationService userValidationService;
+
+    @Transactional
+    public UserResponseDTO updateUser(UserUpdateRequestDTO dto, Long id) {
+        User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado no banco de dados."));
+        if (dto.document() != null && !dto.document().isBlank()) {
+            String cleanDoc = dto.document().replaceAll("[.\\-/]", "").trim().toUpperCase();
+            userValidationService.validateDocumentUpdate(cleanDoc, user.getDocument());
+            user.setDocument(cleanDoc);
+        }
+        if (dto.email() != null) {
+            userValidationService.validateEmailUpdate(dto.email(), user.getEmail());
+            user.setEmail(dto.email().toLowerCase());
+        }
+
+        if (dto.name() != null && !dto.name().isBlank()) user.setName(dto.name().toUpperCase());
+        if (dto.phone() != null) user.setPhone(PhoneUtils.formatToE164(dto.phone()));
+        if (dto.roles() != null && !dto.roles().isEmpty()) user.setRole(dto.roles());
+        if (dto.isActive() != null) user.setActive(dto.isActive());
+
+        userRepository.saveAndFlush(user);
+        return toAdminResponse(user);
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponseDTO findById(Long id) {
+        User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado no banco de dados."));
+        return toAdminResponse(user);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<UserResponseDTO> findAll(Pageable pageable) {
+        return userRepository.findAll(pageable)
+                .map(this::toAdminResponse);
+    }
+
+    private UserResponseDTO toAdminResponse(User user) {
+        String avatarUrl = user.getAvatarUrl() != null && !user.getAvatarUrl().isBlank()
+                ? "/admin/users/" + user.getId() + "/avatar"
+                : null;
+        return new UserResponseDTO(user, avatarUrl);
+    }
+}
