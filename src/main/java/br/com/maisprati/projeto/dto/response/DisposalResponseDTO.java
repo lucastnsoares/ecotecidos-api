@@ -30,6 +30,9 @@ public record DisposalResponseDTO(
         @Schema(description = "Status atual do descarte", example = "PENDING")
         DisposalStatus status,
 
+        @Schema(description = "Justificativa informada caso o descarte seja rejeitado")
+        String justification,
+
         @Schema(description = "Indica se este descarte gerou pontos (false se atingiu o limite diário)")
         boolean generatedCashback,
 

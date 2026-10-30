@@ -1,7 +1,7 @@
 package br.com.maisprati.projeto.controller;
 
-// ... imports padrão (preservar os existentes) ...
 import br.com.maisprati.projeto.dto.request.DisposalCreateRequestDTO;
+import br.com.maisprati.projeto.dto.request.DisposalRejectRequestDTO;
 import br.com.maisprati.projeto.dto.response.CollectionPointDisposalsSummaryDTO;
 import br.com.maisprati.projeto.dto.response.DisposalResponseDTO;
 import br.com.maisprati.projeto.dto.response.UserDisposalsSummaryDTO;
@@ -85,10 +85,11 @@ public class DisposalController {
 
     @PatchMapping("/{id}/reject")
     @PreAuthorize("hasAnyRole('ADMIN', 'PONTO_COLETA_GERENTE', 'PONTO_COLETA_OPERADOR')")
-    @Operation(summary = "Rejeitar descarte", description = "Rejeita um descarte falso ou não entregue. Nenhum cashback é gerado.")
+    @Operation(summary = "Rejeitar descarte", description = "Rejeita um descarte informando uma justificativa.")
     public ResponseEntity<DisposalResponseDTO> rejectDisposal(
             @PathVariable Long id,
+            @Valid @RequestBody DisposalRejectRequestDTO request,
             @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(disposalService.rejectDisposal(id, userDetails.getUsername()));
+        return ResponseEntity.ok(disposalService.rejectDisposal(id, userDetails.getUsername(), request.justification()));
     }
 }
