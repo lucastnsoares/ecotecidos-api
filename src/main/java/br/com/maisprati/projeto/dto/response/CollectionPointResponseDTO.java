@@ -36,7 +36,7 @@ public class CollectionPointResponseDTO {
 
     private AddressResponseDTO address;
 
-    @Schema(description = "URL da imagem de capa", example = "https://example.jpg")
+    @Schema(description = "URL da imagem do ponto de coleta", example = "/collection-points/1/image")
     private String pointPictureUrl;
 
     @Schema(description = "Tipos de tecidos aceitos")

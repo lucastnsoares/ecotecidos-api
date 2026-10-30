@@ -19,10 +19,6 @@ public record PostEditRequestDTO(
         @Schema(description = "ID da categoria associada ao artigo", example = "1")
         Long categoryId,
 
-        @Schema(description = "URL da imagem de capa", example = "https://www.projeto.com.br/posts/jeans-upcycling.jpg")
-        @Size(max = 2048, message = "A URL da imagem não pode ultrapassar 2048 caracteres.")
-        String coverImageUrl,
-
         @Schema(description = "Texto alternativo da imagem para leitores de tela e acessibilidade (WCAG)", example = "Mãos costurando retalhos de calça jeans sobre uma mesa de madeira.") @Size(max = 255, message = "O texto alternativo não pode ultrapassar 255 caracteres.")
         String coverImageAlt,
 

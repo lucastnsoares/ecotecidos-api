@@ -24,7 +24,7 @@ public record AdminPostSummaryResponseDTO(
         @Schema(description = "Nome da categoria associada ao artigo", example = "Upcycling")
         String categoryName,
 
-        @Schema(description = "URL da imagem de capa", example = "https://www.projeto.com.br/posts/jeans-upcycling.jpg")
+        @Schema(description = "URL da imagem de capa para administradores", example = "/admin/posts/1/cover-image")
         String coverImageUrl,
 
         @Schema(description = "Texto alternativo da imagem para leitores de tela e acessibilidade (WCAG)", example = "Mãos costurando retalhos de calça jeans sobre uma mesa de madeira.")
@@ -53,7 +53,9 @@ public record AdminPostSummaryResponseDTO(
             post.getTitle(),
             post.getSummary(),
             post.getCategory() != null ? post.getCategory().getName() : "",
-            post.getCoverImageUrl() != null ? post.getCoverImageUrl() : "",
+            post.getCoverImageUrl() != null && !post.getCoverImageUrl().isBlank()
+                ? "/admin/posts/" + post.getId() + "/cover-image"
+                : null,
             post.getCoverImageAlt() != null ? post.getCoverImageAlt() : "",
             post.getTags(),
             post.getClothTypes() != null ? post.getClothTypes().stream()

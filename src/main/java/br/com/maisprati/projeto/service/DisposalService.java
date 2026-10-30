@@ -164,7 +164,7 @@ public class DisposalService {
 
     // Rejeição do descarte (quando o doador não aparece ou dados falsos)
     @Transactional
-    public DisposalResponseDTO rejectDisposal(Long disposalId, String approverUsername) {
+    public DisposalResponseDTO rejectDisposal(Long disposalId, String approverUsername, String justification) {
         Disposal disposal = disposalRepository.findById(disposalId)
                 .orElseThrow(() -> new EntityNotFoundException("Descarte não encontrado."));
 
@@ -177,6 +177,7 @@ public class DisposalService {
         disposal.setStatus(DisposalStatus.REJECTED);
         disposal.setConfirmedBy(approver);
         disposal.setConfirmedAt(Instant.now());
+        disposal.setJustification(justification);
 
         return mapToDTO(disposalRepository.save(disposal));
     }
@@ -229,6 +230,7 @@ public class DisposalService {
                 .collectionPointName(entity.getCollectionPoint().getName())
                 .approximateWeightInKg(entity.getApproximateWeightInKg())
                 .status(entity.getStatus())
+                .justification(entity.getJustification())
                 .createdAt(entity.getCreatedAt())
                 .generatedCashback(cashbackGenerated)
                 .pointsPerKg(pointsPerKg)
