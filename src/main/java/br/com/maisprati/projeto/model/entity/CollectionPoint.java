@@ -66,6 +66,9 @@ public class CollectionPoint {
     @Column(name = "point_picture_url", length = 2048)
     private String pointPictureUrl;
 
+    @Column(name = "favorite_count", nullable = false)
+    private Long favoriteCount = 0L;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 100)
     @Builder.Default
@@ -82,4 +85,13 @@ public class CollectionPoint {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    public void incrementFavoriteCount() {
+        this.favoriteCount++;
+    }
+
+    public void decrementFavoriteCount() {
+        this.favoriteCount--;
+    }
+
 }

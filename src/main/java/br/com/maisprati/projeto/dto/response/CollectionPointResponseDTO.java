@@ -48,6 +48,9 @@ public class CollectionPointResponseDTO {
     @Schema(description = "Indica se há edições pendentes")
     private boolean hasPendingUpdate;
 
+    @Schema(description = "Quantidade de usuários que favoritaram o ponto de coleta")
+    private Long favoriteCount;
+
     @Data
     @Builder
     @JsonPropertyOrder({

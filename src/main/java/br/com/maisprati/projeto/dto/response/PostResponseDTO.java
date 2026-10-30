@@ -38,6 +38,9 @@ public record PostResponseDTO(
         @Schema(description = "Tipos de tecido aceitos que se relacionam com este artigo", example = "[{\"id\":1,\"name\":\"Algodão\"},{\"id\":3,\"name\":\"Jeans\"}]")
         Set<ClothTypeSummaryResponseDTO> clothTypes,
 
+        @Schema(description = "Quantidade de usuários que favoritaram este post", example = "10")
+        Long favoriteCount,
+
         @Schema(description = "Data de criação do registro", example = "2026-08-26T22:00:00Z")
         Instant createdAt,
 
@@ -66,6 +69,7 @@ public record PostResponseDTO(
                 post.getClothTypes() != null
                         ? post.getClothTypes().stream().map(ClothTypeSummaryResponseDTO::new).collect(Collectors.toSet())
                         : Collections.emptySet(),
+                post.getFavoriteCount(),
                 post.getCreatedAt(),
                 post.getUpdatedAt(),
                 post.getCreatedBy() != null ? post.getCreatedBy().getName() : null,

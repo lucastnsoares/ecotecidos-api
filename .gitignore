@@ -36,4 +36,5 @@ build/
 ### VS Code ###
 .vscode/
 
-
+## project
+/uploads/

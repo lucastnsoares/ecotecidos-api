@@ -12,7 +12,8 @@ public record CollectionPointSummaryResponseDTO(
     String address,
     BigDecimal latitude,
     BigDecimal longitude,
-    List<String> aceptedClothTypes
+    List<String> aceptedClothTypes,
+    Long favoriteCount
 ) {
     public CollectionPointSummaryResponseDTO(CollectionPoint entity, List<String> clothTypes) {
         this(
@@ -22,7 +23,8 @@ public record CollectionPointSummaryResponseDTO(
             formatAddress(entity),
             entity.getAddress().getLatitude(),
             entity.getAddress().getLongitude(),
-            clothTypes
+            clothTypes,
+            entity.getFavoriteCount()
         );
     }
 
