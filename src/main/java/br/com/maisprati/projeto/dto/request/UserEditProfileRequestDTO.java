@@ -17,5 +17,8 @@ public record UserEditProfileRequestDTO(
 
         @Schema(description = "Telefone no padrão internacional E.164", example = "+5531988887777")
         @InternationalPhone(message = "Número de telefone inválido no padrão internacional.")
-        String phone
+        String phone,
+
+        @Schema(description = "Remove o avatar atual quando true. Não pode ser usado junto com uma nova imagem.", example = "false")
+        boolean removeAvatar
 ) {}

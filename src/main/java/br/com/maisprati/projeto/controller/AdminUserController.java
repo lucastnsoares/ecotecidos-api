@@ -7,6 +7,7 @@ import br.com.maisprati.projeto.dto.response.UserResponseDTO;
 import br.com.maisprati.projeto.dto.response.ValidationErrorResponseDTO;
 import br.com.maisprati.projeto.service.AdminService;
 import br.com.maisprati.projeto.service.RegisterUserService;
+import br.com.maisprati.projeto.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -17,17 +18,22 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 @RestController
 @RequestMapping("/admin")
@@ -38,6 +44,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminUserController {
     private final AdminService adminService;
     private final RegisterUserService registerUserService;
+    private final UserService userService;
 
     @Operation(summary = "Listar todos os usuários", description = "Retorna lista paginada de contas cadastradas com suporte a ordenação.")
     @ApiResponses({
@@ -164,6 +171,34 @@ public class AdminUserController {
     ) {
         var user = adminService.findById(id);
         return ResponseEntity.status(HttpStatus.OK).body(user);
+    }
+
+    @Operation(summary = "Obter avatar de usuário", description = "Retorna a imagem de perfil de qualquer usuário. Disponível somente para administradores.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Imagem retornada com sucesso"),
+            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @ApiResponse(responseCode = "403", description = "Acesso negado: requer perfil ADMIN",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado ou sem imagem",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+    })
+    @GetMapping("/users/{id}/avatar")
+    public ResponseEntity<Resource> getUserAvatar(@PathVariable Long id) throws IOException {
+        return buildImageResponse(userService.getAvatarForAdmin(id));
+    }
+
+    private ResponseEntity<Resource> buildImageResponse(Resource avatar) throws IOException {
+        String contentType = Files.probeContentType(Paths.get(avatar.getURI()));
+        if (contentType == null) {
+            contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + avatar.getFilename() + "\"")
+                .cacheControl(org.springframework.http.CacheControl.noStore())
+                .body(avatar);
     }
 
     @Operation(summary = "Atualizar usuário por ID", description = "Altera campos cadastrais, perfis de acesso ou status ativo da conta.")

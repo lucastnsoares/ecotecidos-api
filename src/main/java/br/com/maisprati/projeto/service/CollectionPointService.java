@@ -2,7 +2,7 @@ package br.com.maisprati.projeto.service;
 
 import br.com.maisprati.projeto.dto.projection.CollectionPointDistanceProjectionDTO;
 import br.com.maisprati.projeto.dto.request.CollectionPointCreateRequestDTO;
-import br.com.maisprati.projeto.dto.request.CollectionPointUpdateDTO;
+import br.com.maisprati.projeto.dto.request.CollectionPointUpdateRequestDTO;
 import br.com.maisprati.projeto.dto.request.OperatorCreateRequestDTO;
 import br.com.maisprati.projeto.dto.response.*;
 import br.com.maisprati.projeto.mapper.CollectionPointMapper;
@@ -15,15 +15,18 @@ import br.com.maisprati.projeto.repository.CollectionPointPendingUpdateRepositor
 import br.com.maisprati.projeto.repository.CollectionPointRepository;
 import br.com.maisprati.projeto.repository.UserRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.core.io.Resource;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -44,11 +47,20 @@ public class CollectionPointService {
         private final ClothTypeRepository clothTypeRepository;
         private final UserRepository userRepository;
         private final CollectionPointMapper collectionPointMapper;
+        private final FileStorageService fileStorageService;
 
         private final ObjectMapper objectMapper = new ObjectMapper();
 
         @Transactional
         public CollectionPointResponseDTO createCollectionPoint(CollectionPointCreateRequestDTO dto, String ownerEmail) {
+                return createCollectionPoint(dto, null, ownerEmail);
+        }
+
+        @Transactional
+        public CollectionPointResponseDTO createCollectionPoint(
+                        CollectionPointCreateRequestDTO dto,
+                        MultipartFile image,
+                        String ownerEmail) {
                 User owner = userRepository.findByEmail(ownerEmail)
                         .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
 
@@ -79,7 +91,7 @@ public class CollectionPointService {
                 CollectionPoint collectionPoint = CollectionPoint.builder()
                         .name(dto.getName().trim().toUpperCase(Locale.ROOT))
                         .address(address)
-                        .pointPictureUrl((dto.getImageUrl()) != null ? dto.getImageUrl().trim() : null)
+                        .pointPictureUrl(null)
                         .status(CollectionPointStatus.PENDING)
                         .managers(new HashSet<>())
                         .clothTypes(new HashSet<>())
@@ -104,6 +116,10 @@ public class CollectionPointService {
                 collectionPoint.setStatus(CollectionPointStatus.PENDING); 
 
                 CollectionPoint saved = collectionPointRepository.save(collectionPoint);
+                if (image != null && !image.isEmpty()) {
+                        saved.setPointPictureUrl(fileStorageService.saveCollectionPointImage(saved.getId(), image));
+                        saved = collectionPointRepository.save(saved);
+                }
                 return mapToDTO(saved);
         }
 
@@ -174,6 +190,69 @@ public class CollectionPointService {
                         .filter(point -> point.getStatus() == CollectionPointStatus.ACTIVE)
                         .orElseThrow(() -> new IllegalArgumentException("Ponto de coleta não encontrado ou indisponível."));
                 return mapToDTO(collectionPoint);
+        }
+
+        @Transactional(readOnly = true)
+        public Resource findImageByCollectionPointId(Long id) {
+                CollectionPoint point = collectionPointRepository.findById(id)
+                        .filter(entity -> entity.getStatus() == CollectionPointStatus.ACTIVE)
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Ponto de coleta não encontrado ou indisponível."));
+
+                if (point.getPointPictureUrl() == null || point.getPointPictureUrl().isBlank()) {
+                        throw new IllegalArgumentException("O ponto de coleta não possui imagem.");
+                }
+
+                Resource resource = fileStorageService.loadImage(point.getPointPictureUrl());
+                if (resource == null) {
+                        throw new IllegalArgumentException("Arquivo de imagem não encontrado no servidor.");
+                }
+                return resource;
+        }
+
+        @Transactional(readOnly = true)
+        public Resource findImageByCollectionPointIdForAdmin(Long id) {
+                CollectionPoint point = collectionPointRepository.findById(id)
+                        .orElseThrow(() -> new EntityNotFoundException(
+                                "Ponto de coleta não encontrado."));
+
+                if (point.getPointPictureUrl() == null || point.getPointPictureUrl().isBlank()) {
+                        throw new IllegalArgumentException("O ponto de coleta não possui imagem.");
+                }
+
+                Resource resource = fileStorageService.loadImage(point.getPointPictureUrl());
+                if (resource == null) {
+                        throw new IllegalArgumentException("Arquivo de imagem não encontrado no servidor.");
+                }
+                return resource;
+        }
+
+        @Transactional(readOnly = true)
+        public Resource findPendingImageByCollectionPointIdForAdmin(Long id) {
+                CollectionPointPendingUpdate pending = pendingUpdateRepository.findByCollectionPointId(id)
+                        .orElseThrow(() -> new EntityNotFoundException(
+                                "Nenhuma edição pendente para este ponto."));
+
+                try {
+                        CollectionPointUpdateRequestDTO proposedUpdate = objectMapper.readValue(
+                                pending.getUpdatePayloadJson(), CollectionPointUpdateRequestDTO.class);
+                        String imagePath = proposedUpdate.imageUrl();
+
+                        if (imagePath == null || imagePath.isBlank()) {
+                                throw new IllegalArgumentException(
+                                        "A edição pendente não possui uma nova imagem.");
+                        }
+
+                        Resource resource = fileStorageService.loadImage(imagePath);
+                        if (resource == null) {
+                                throw new IllegalArgumentException(
+                                        "Arquivo da imagem pendente não encontrado no servidor.");
+                        }
+                        return resource;
+                } catch (JsonProcessingException e) {
+                        throw new RuntimeException(
+                                "Erro ao processar os dados da edição pendente.", e);
+                }
         }
 
         @Transactional(readOnly = true)
@@ -260,7 +339,16 @@ public class CollectionPointService {
         }
 
         @Transactional
-        public CollectionPointResponseDTO updateCollectionPoint(Long id, CollectionPointUpdateDTO requestDTO, String username) {
+        public CollectionPointResponseDTO updateCollectionPoint(Long id, CollectionPointUpdateRequestDTO requestDTO, String username) {
+                return updateCollectionPoint(id, requestDTO, null, username);
+        }
+
+        @Transactional
+        public CollectionPointResponseDTO updateCollectionPoint(
+                        Long id,
+                        CollectionPointUpdateRequestDTO requestDTO,
+                        MultipartFile image,
+                        String username) {
                 CollectionPoint point = collectionPointRepository.findById(id)
                         .orElseThrow(() -> new EntityNotFoundException("Ponto de coleta não encontrado."));
 
@@ -276,7 +364,18 @@ public class CollectionPointService {
 
                 // gerente ou admin geram o update.
                 try {
-                        String payloadJson = objectMapper.writeValueAsString(requestDTO);
+                        CollectionPointUpdateRequestDTO pendingDto = requestDTO;
+                        if (image != null && !image.isEmpty()) {
+                                String imagePath = fileStorageService.saveCollectionPointImage(point.getId(), image);
+                                pendingDto = new CollectionPointUpdateRequestDTO(
+                                        requestDTO.name(),
+                                        requestDTO.address(),
+                                        requestDTO.status(),
+                                        imagePath,
+                                        requestDTO.clothTypeIds(),
+                                        requestDTO.operatingHour());
+                        }
+                        String payloadJson = buildPendingUpdatePayload(pendingDto);
 
                         CollectionPointPendingUpdate pendingUpdate = pendingUpdateRepository.findByCollectionPointId(point.getId())
                                 .orElse(CollectionPointPendingUpdate.builder().collectionPoint(point).build());
@@ -294,13 +393,23 @@ public class CollectionPointService {
                 } catch (JsonProcessingException e) {
                         throw new RuntimeException("Erro ao processar os dados da atualização.", e);
                 }
+
+        }
+
+        private String buildPendingUpdatePayload(CollectionPointUpdateRequestDTO pendingDto)
+                        throws JsonProcessingException {
+                ObjectNode payload = objectMapper.valueToTree(pendingDto);
+                if (pendingDto.imageUrl() != null && !pendingDto.imageUrl().isBlank()) {
+                        payload.put("imageUrl", pendingDto.imageUrl());
+                }
+                return objectMapper.writeValueAsString(payload);
         }
 
         @Transactional(readOnly = true)
         public Page<PendingUpdateResponseDTO> listPendingUpdates(Pageable pageable) {
                 return pendingUpdateRepository.findAll(pageable).map(pending -> {
                         try {
-                                CollectionPointUpdateDTO proposed = objectMapper.readValue(pending.getUpdatePayloadJson(), CollectionPointUpdateDTO.class);
+                                CollectionPointUpdateRequestDTO proposed = objectMapper.readValue(pending.getUpdatePayloadJson(), CollectionPointUpdateRequestDTO.class);
                                 return PendingUpdateResponseDTO.builder()
                                         .id(pending.getId())
                                         .currentPoint(mapToDTO(pending.getCollectionPoint()))
@@ -320,14 +429,16 @@ public class CollectionPointService {
                         .orElseThrow(() -> new EntityNotFoundException("Nenhuma edição pendente para este ponto."));
 
                 try {
-                        CollectionPointUpdateDTO proposedDTO = objectMapper.readValue(pending.getUpdatePayloadJson(), CollectionPointUpdateDTO.class);
+                        CollectionPointUpdateRequestDTO proposedDTO = objectMapper.readValue(pending.getUpdatePayloadJson(), CollectionPointUpdateRequestDTO.class);
                         CollectionPoint point = pending.getCollectionPoint();
+                        String previousImagePath = point.getPointPictureUrl();
 
                         applyUpdatesToEntity(point, proposedDTO);
                         point.setHasPendingUpdate(false);
 
                         collectionPointRepository.save(point);
                         pendingUpdateRepository.delete(pending);
+                        deleteReplacedImage(previousImagePath, point.getPointPictureUrl());
 
                         return mapToDTO(point);
                 } catch (JsonProcessingException e) {
@@ -344,9 +455,26 @@ public class CollectionPointService {
                 point.setHasPendingUpdate(false);
                 collectionPointRepository.save(point);
                 pendingUpdateRepository.delete(pending);
+
+                try {
+                        CollectionPointUpdateRequestDTO proposedDTO = objectMapper.readValue(
+                                pending.getUpdatePayloadJson(), CollectionPointUpdateRequestDTO.class);
+                        deleteReplacedImage(point.getPointPictureUrl(), proposedDTO.imageUrl());
+                } catch (JsonProcessingException e) {
+                        throw new RuntimeException(
+                                "Erro ao processar os dados da edição pendente.", e);
+                }
         }
 
-        private void applyUpdatesToEntity(CollectionPoint point, CollectionPointUpdateDTO dto) {
+        private void deleteReplacedImage(String currentImagePath, String proposedImagePath) {
+                if (proposedImagePath != null
+                        && !proposedImagePath.isBlank()
+                        && !proposedImagePath.equals(currentImagePath)) {
+                        fileStorageService.deletePostCoverImage(proposedImagePath);
+                }
+        }
+
+        private void applyUpdatesToEntity(CollectionPoint point, CollectionPointUpdateRequestDTO dto) {
                 collectionPointMapper.updateEntityFromDto(dto, point);
 
                 if (dto.address() != null && point.getAddress() != null) {
@@ -454,7 +582,10 @@ public class CollectionPointService {
                         .name(entity.getName())
                         .status(entity.getStatus())
                         .hasPendingUpdate(entity.isHasPendingUpdate())
-                        .pointPictureUrl(entity.getPointPictureUrl())
+                        .pointPictureUrl(entity.getPointPictureUrl() != null
+                                && !entity.getPointPictureUrl().isBlank()
+                                ? "/collection-points/" + entity.getId() + "/image"
+                                : null)
                         .address(CollectionPointResponseDTO.AddressResponseDTO.builder()
                                 .street(addr.getStreet())
                                 .number(addr.getNumber())

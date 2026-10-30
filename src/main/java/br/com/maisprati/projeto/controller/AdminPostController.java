@@ -4,7 +4,6 @@ import br.com.maisprati.projeto.dto.request.PostCreateRequestDTO;
 import br.com.maisprati.projeto.dto.request.PostDeleteRequestDTO;
 import br.com.maisprati.projeto.dto.request.PostEditRequestDTO;
 import br.com.maisprati.projeto.dto.response.PostResponseDTO;
-import br.com.maisprati.projeto.dto.response.PostSummaryResponseDTO;
 import br.com.maisprati.projeto.dto.response.AdminPostResponseDTO;
 import br.com.maisprati.projeto.dto.response.AdminPostSummaryResponseDTO;
 import br.com.maisprati.projeto.dto.response.ErrorResponseDTO;
@@ -12,6 +11,7 @@ import br.com.maisprati.projeto.dto.response.ValidationErrorResponseDTO;
 import br.com.maisprati.projeto.model.entity.User;
 import br.com.maisprati.projeto.service.PostService;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Encoding;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,18 +23,27 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
@@ -83,7 +92,7 @@ public class AdminPostController {
         @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Post localizado",
                 content = @Content(schema = @Schema(implementation = AdminPostResponseDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Post não encontrado ou já excluído",
+            @ApiResponse(responseCode = "400", description = "Post não encontrado",
                 content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class),
                     examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 400, \"error\": \"Bad Request\", \"message\": \"Post inexistente ou não disponível.\", \"path\": \"/admin/posts/99\"}"))),
             @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
@@ -98,7 +107,7 @@ public class AdminPostController {
         return ResponseEntity.ok(postService.findPostById(id));
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Criar um novo post", description = "Permite a criação de um novo post. Apenas usuários com role ADMIN podem acessar este endpoint.")
         @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Post criado com sucesso",
@@ -117,10 +126,16 @@ public class AdminPostController {
                     examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 403, \"error\": \"Forbidden\", \"message\": \"Você não possui autorização para acessar este recurso.\", \"path\": \"/admin/posts\"}")))
         })
     public ResponseEntity<PostResponseDTO> createPost(
-            @Valid @RequestBody PostCreateRequestDTO dto,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                content = @Content(
+                    encoding = @Encoding(name = "data", contentType = "application/json")
+                )
+            )
+            @Valid @RequestPart("data") PostCreateRequestDTO dto,
+            @RequestPart(value = "image", required = false) MultipartFile image,
             @Parameter(hidden = true) @AuthenticationPrincipal User loggedInUser,
             UriComponentsBuilder uriBuilder) {
-        PostResponseDTO responseDto = postService.createPost(dto, loggedInUser);
+        PostResponseDTO responseDto = postService.createPost(dto, image, loggedInUser);
 
         URI uri = uriBuilder.path("/admin/posts/{id}")
                 .buildAndExpand(responseDto.id())
@@ -129,7 +144,7 @@ public class AdminPostController {
         return ResponseEntity.created(uri).body(responseDto);
     }
 
-    @PatchMapping("/{id}")
+    @PatchMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Atualizar um post existente", description = "Permite a atualização de um post existente. Apenas usuários com role ADMIN podem acessar este endpoint.")
         @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Post atualizado com sucesso",
@@ -149,8 +164,14 @@ public class AdminPostController {
         })
     public ResponseEntity<PostResponseDTO> updatePost(
             @Parameter(description = "ID do post", example = "1") @PathVariable Long id,
-            @Valid @RequestBody PostEditRequestDTO dto) {
-        return ResponseEntity.ok(postService.updatePost(id, dto));
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    content = @Content(
+                        encoding = @Encoding(name = "data", contentType = "application/json")
+                    )
+                )
+            @Valid @RequestPart("data") PostEditRequestDTO dto,
+            @Parameter(description = "Imagem de capa do post", example = "jeans-upcycling.jpg") @RequestPart (value = "image", required = false) MultipartFile image) {
+        return ResponseEntity.ok(postService.updatePost(id, dto, image));
     }
 
     @DeleteMapping("/{id}")
@@ -176,5 +197,36 @@ public class AdminPostController {
             @AuthenticationPrincipal User loggedInUser) {
         postService.deletePost(id, dto, loggedInUser);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/cover-image")
+    @Operation(summary = "Obtem a imagem de capa do post", description = "Retorna o arquivo binário da imagem do post. Apenas ADMIN.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Imagem retornada com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Post inexistente, excluído ou sem imagem",
+            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido",
+            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado: requer perfil ADMIN",
+            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+    })
+    public ResponseEntity<Resource> getPostImage(
+            @Parameter(description = "ID do post", example = "1") @PathVariable Long id) throws IOException {
+        Resource imageResource = postService.findImageByPostId(id);
+
+        String contentType = Files.probeContentType(Paths.get(imageResource.getURI()));
+        if (contentType == null) {
+            contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        }
+
+        return ResponseEntity.ok()
+                 // Define o cabeçalho Content-Type correto
+                .contentType(MediaType.parseMediaType(contentType))
+                // inline: instrui o cliente a renderizar na tela (em vez de forçar download attachment)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + imageResource.getFilename() + "\"")
+                // Cache HTTP: evita requisitar a imagem repetidamente no mesmo cliente
+                .cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS).cachePrivate())
+                // Transmite os bytes via streaming direto do disco
+                .body(imageResource);
     }
 }

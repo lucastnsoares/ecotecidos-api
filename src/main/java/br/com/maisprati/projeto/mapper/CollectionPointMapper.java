@@ -1,6 +1,6 @@
 package br.com.maisprati.projeto.mapper;
 
-import br.com.maisprati.projeto.dto.request.CollectionPointUpdateDTO;
+import br.com.maisprati.projeto.dto.request.CollectionPointUpdateRequestDTO;
 import br.com.maisprati.projeto.model.entity.Address;
 import br.com.maisprati.projeto.model.entity.CollectionPoint;
 import br.com.maisprati.projeto.model.entity.OperatingHour;
@@ -19,7 +19,7 @@ public interface CollectionPointMapper {
     @Mapping(target = "hasPendingUpdate", ignore = true)
     @Mapping(target = "managers", ignore = true)
     @Mapping(target = "operators", ignore = true)
-    void updateEntityFromDto(CollectionPointUpdateDTO dto, @MappingTarget CollectionPoint entity);
+    void updateEntityFromDto(CollectionPointUpdateRequestDTO dto, @MappingTarget CollectionPoint entity);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "street", qualifiedByName = "toUpperCase")
@@ -30,10 +30,10 @@ public interface CollectionPointMapper {
     @Mapping(target = "country", qualifiedByName = "toUpperCase")
     @Mapping(target = "zipCode", qualifiedByName = "trimOnly")
     @Mapping(target = "state", expression = "java(dto.state() != null && !dto.state().isBlank() ? br.com.maisprati.projeto.model.enums.State.valueOf(dto.state().trim().toUpperCase()) : entity.getState())")
-    void updateAddressFromDto(CollectionPointUpdateDTO.AddressRequestDTO dto, @MappingTarget Address entity);
+    void updateAddressFromDto(CollectionPointUpdateRequestDTO.AddressRequestDTO dto, @MappingTarget Address entity);
 
     @Mapping(target = "dayOfWeek", expression = "java(java.time.DayOfWeek.valueOf(dto.dayOfWeek().trim().toUpperCase()))")
     @Mapping(target = "openingTime", expression = "java(java.time.LocalTime.parse(dto.openTime()))")
     @Mapping(target = "closingTime", expression = "java(java.time.LocalTime.parse(dto.closeTime()))")
-    OperatingHour toOperatingHourEntity(CollectionPointUpdateDTO.OperatingHourRequestDTO dto);
+    OperatingHour toOperatingHourEntity(CollectionPointUpdateRequestDTO.OperatingHourRequestDTO dto);
 }

@@ -36,18 +36,25 @@ public class AdminService {
         if (dto.isActive() != null) user.setActive(dto.isActive());
 
         userRepository.saveAndFlush(user);
-        return new UserResponseDTO(user);
+        return toAdminResponse(user);
     }
 
     @Transactional(readOnly = true)
     public UserResponseDTO findById(Long id) {
         User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado no banco de dados."));
-        return new UserResponseDTO(user);
+        return toAdminResponse(user);
     }
 
     @Transactional(readOnly = true)
     public Page<UserResponseDTO> findAll(Pageable pageable) {
         return userRepository.findAll(pageable)
-                .map(UserResponseDTO::new);
+                .map(this::toAdminResponse);
+    }
+
+    private UserResponseDTO toAdminResponse(User user) {
+        String avatarUrl = user.getAvatarUrl() != null && !user.getAvatarUrl().isBlank()
+                ? "/admin/users/" + user.getId() + "/avatar"
+                : null;
+        return new UserResponseDTO(user, avatarUrl);
     }
 }

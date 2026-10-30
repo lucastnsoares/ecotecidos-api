@@ -11,13 +11,21 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,7 +41,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 public class PostController {
     private final PostService postService;
 
-    @Operation(summary = "Listar todos os posts publicados de forma resumida e paginada", description = "Retorna os posts publicados de forma resumida. Usuário logados podem acessar este endpoint")
+    @Operation(summary = "Listar todos os posts publicados de forma resumida e paginada", description = "Retorna os posts publicados de forma resumida. Usuários autenticados podem acessar este endpoint")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Lista paginada de posts publicados retornada com sucesso",
             content = @Content(schema = @Schema(implementation = Page.class))),
@@ -65,7 +73,7 @@ public class PostController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Retornar um post específico", description = "Retorna um post específico. Usuário logados podem acessar este endpoint")
+    @Operation(summary = "Retornar um post específico", description = "Retorna um post específico. Usuários autenticados podem acessar este endpoint")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Post publicado localizado",
             content = @Content(schema = @Schema(implementation = PostResponseDTO.class))),
@@ -79,6 +87,37 @@ public class PostController {
     public ResponseEntity<PostResponseDTO> findPostByIdAndIsPublishedTrue(
         @Parameter(description = "ID do post publicado", example = "1") @PathVariable Long id) {
         return ResponseEntity.ok(postService.findPostByIdAndIsPublishedTrue(id));
+    }
+
+    @GetMapping("/{id}/image")
+    @Operation(summary = "Obter imagem do post publicado", description = "Retorna o arquivo binário da imagem do post.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Imagem retornada com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Post inexistente, não publicado ou sem imagem",
+            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+        @ApiResponse(responseCode = "401", description = "Token ausente ou inválido",
+            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+        @ApiResponse(responseCode = "403", description = "Acesso negado",
+            content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+    })
+    public ResponseEntity<Resource> getPublishedPostImage(@PathVariable Long id) throws IOException {
+        Resource imageResource = postService.findImageByPostIdAndIsPublishedTrue(id);
+        
+        String contentType = Files.probeContentType(Paths.get(imageResource.getURI()));
+
+        if (contentType == null) {
+            contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        }
+
+        return ResponseEntity.ok()
+                // Define o cabeçalho Content-Type correto
+                .contentType(MediaType.parseMediaType(contentType))
+                // inline: instrui o cliente a renderizar na tela (em vez de forçar download attachment)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + imageResource.getFilename() + "\"")
+                // Cache HTTP: evita requisitar a imagem repetidamente no mesmo cliente
+                .cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS).cachePrivate())
+                // Transmite os bytes via streaming direto do disco
+                .body(imageResource);
     }
 
 }

@@ -5,9 +5,11 @@ import java.util.Set;
 
 import br.com.maisprati.projeto.model.enums.CollectionPointStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonProperty.Access;
 import jakarta.validation.Valid;
 
-public record CollectionPointUpdateDTO(
+public record CollectionPointUpdateRequestDTO(
     @Schema(description = "Nome do ponto de coleta", example = "EcoPonto Central - Tecidos")
     String name,
 
@@ -18,7 +20,8 @@ public record CollectionPointUpdateDTO(
     @Schema(description = "Status do ponto de coleta no sistema", example = "ACTIVE")
     CollectionPointStatus status,
 
-    @Schema(description = "URL da imagem de capa do ponto de coleta", example = "https://example.jpg")
+    @Schema(hidden = true)
+    @JsonProperty(access = Access.WRITE_ONLY)
     String imageUrl,
 
     @Schema(description = "IDs dos tipos de tecido aceitos pelo ponto de coleta", example = "[1, 2]")

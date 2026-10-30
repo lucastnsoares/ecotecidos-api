@@ -16,10 +16,12 @@ import br.com.maisprati.projeto.repository.ClothTypeRepository;
 import br.com.maisprati.projeto.repository.PostRepository;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.text.Normalizer;
 import java.time.Instant;
@@ -35,6 +37,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PostService {
     private final PostRepository postRepository;
+    private final FileStorageService fileStorageService;
     private final CategoryRepository categoryRepository;
     private final ClothTypeRepository clothTypeRepository;
 
@@ -42,11 +45,11 @@ public class PostService {
     private static final Pattern WHITESPACE = Pattern.compile("[\\s]");
 
     @Transactional
-    public PostResponseDTO createPost(PostCreateRequestDTO dto, User loggedInUser) {
+    public PostResponseDTO createPost(PostCreateRequestDTO dto, MultipartFile image, User loggedInUser) {
         Category category = categoryRepository.findById(dto.categoryId())
                 .orElseThrow(() -> new IllegalArgumentException("Categoria informada não foi encontrada."));
 
-        validateAccessibilityAndCoverImage(dto.coverImageUrl(), dto.coverImageAlt());
+        validateAccessibilityAndCoverImage(image, dto.coverImageAlt());
 
         String slug = generateUniqueSlug(dto.title());
 
@@ -61,14 +64,21 @@ public class PostService {
         post.setBody(dto.body().trim());
         post.setCategory(category);
         post.setCreatedBy(loggedInUser);
-        post.setCoverImageUrl(dto.coverImageUrl() != null ? dto.coverImageUrl().trim() : null);
+        post.setCoverImageUrl(null);
         post.setCoverImageAlt(dto.coverImageAlt() != null ? dto.coverImageAlt().trim() : null);
         post.setTags(sanitizedTags);
         post.setClothTypes(clothTypes);
         post.setViewCount(0L);
-        post.setPublished(true);
+        post.setPublished(dto.isPublished() == null || dto.isPublished());
 
         Post savedPost = postRepository.save(post);
+
+        if(image != null && !image.isEmpty()) {
+            String fileName = fileStorageService.savePostCoverImage(post.getId(), image);
+            post.setCoverImageUrl(fileName); 
+            savedPost = postRepository.save(post);
+        }
+
         return new PostResponseDTO(savedPost);
     }
 
@@ -108,7 +118,7 @@ public class PostService {
 
     // Apenas ADMIN
     @Transactional
-    public PostResponseDTO updatePost(Long id, PostEditRequestDTO dto) {
+    public PostResponseDTO updatePost(Long id, PostEditRequestDTO dto, MultipartFile image) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Post inexistente."));
 
@@ -116,10 +126,17 @@ public class PostService {
             throw new IllegalArgumentException("Não é possível atualizar um post que foi excluído.");
         }
 
-        String targetImageUrl = dto.coverImageUrl() != null ? dto.coverImageUrl().trim() : post.getCoverImageUrl();
-        String targetImageAlt = dto.coverImageAlt() != null ? dto.coverImageAlt().trim() : post.getCoverImageAlt();
-        validateAccessibilityAndCoverImage(targetImageUrl, targetImageAlt);
-
+        if (image != null && !image.isEmpty()) {
+            String oldImageFileName = post.getCoverImageUrl();
+            if (oldImageFileName != null && !oldImageFileName.isBlank()) {
+                fileStorageService.deletePostCoverImage(oldImageFileName);
+            }
+            String newFileName = fileStorageService.savePostCoverImage(post.getId(), image);
+            String targetImageAlt = dto.coverImageAlt() != null ? dto.coverImageAlt().trim() : post.getCoverImageAlt();
+            validateAccessibilityAndCoverImage(image, targetImageAlt);
+            post.setCoverImageUrl(newFileName);
+        }
+        
         if (dto.title() != null && !dto.title().isBlank()) {
             post.setTitle(dto.title().trim());
             String newSlug = generateUniqueSlug(dto.title());
@@ -131,9 +148,7 @@ public class PostService {
         if (dto.body() != null && !dto.body().isBlank()) {
             post.setBody(dto.body().trim());
         }
-        if (dto.coverImageUrl() != null && !dto.coverImageUrl().isBlank()) {
-            post.setCoverImageUrl(dto.coverImageUrl().trim());
-        }
+
         if (dto.coverImageAlt() != null && !dto.coverImageAlt().isBlank()) {
             post.setCoverImageAlt(dto.coverImageAlt().trim());
         }
@@ -184,8 +199,8 @@ public class PostService {
         postRepository.save(post);
     }
 
-    private void validateAccessibilityAndCoverImage(String coverImageUrl, String coverImageAlt) {
-        boolean hasImageUrl = coverImageUrl != null && !coverImageUrl.isBlank();
+    private void validateAccessibilityAndCoverImage(MultipartFile coverImage, String coverImageAlt) {
+        boolean hasImageUrl = coverImage != null && !coverImage.isEmpty();
         boolean hasImageAlt = coverImageAlt != null && !coverImageAlt.isBlank();
 
         if (hasImageUrl && !hasImageAlt) {
@@ -249,6 +264,51 @@ public class PostService {
         String normalized = Normalizer.normalize(nowhitespace, Normalizer.Form.NFD);
         String slug = NONLATIN.matcher(normalized).replaceAll("");
         return slug.toLowerCase(Locale.ENGLISH).replaceAll("-{2,}", "-").replaceAll("^-|-$", "");
+    }
+
+    @Transactional(readOnly = true)
+    public Boolean existsByCategory(Category category) {
+        return postRepository.existsByCategory(category);
+    }
+
+    @Transactional (readOnly = true)
+    public String findPostImageById(Long postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("Post inexistente."));
+        return post.getCoverImageUrl();
+    }
+
+    @Transactional(readOnly = true)
+    public Resource findImageByPostIdAndIsPublishedTrue(Long id) {
+        Post post = postRepository.findByIdAndIsPublishedTrue(id)
+                .orElseThrow(() -> new IllegalArgumentException("Post inexistente ou não publicado."));
+        String imageUrl = post.getCoverImageUrl();
+        if (imageUrl == null || imageUrl.isBlank()) {
+            throw new IllegalArgumentException("Post não possui imagem de capa.");
+        }
+        Resource imageResource = fileStorageService.loadPostCoverImage(imageUrl);
+        if (imageResource == null) {
+            throw new IllegalArgumentException("Imagem não encontrada no servidor.");
+        }
+        return imageResource;
+    }
+
+    @Transactional(readOnly = true)
+    public Resource findImageByPostId(Long id) {
+        Post post = postRepository.findByIdAndDeletedAtIsNull(id)
+            .orElseThrow(() -> new IllegalArgumentException("Post inexistente ou não disponível."));
+
+        String fileName = post.getCoverImageUrl();
+        if (fileName == null || fileName.isBlank()) {
+            throw new IllegalArgumentException("O post informado não possui imagem.");
+        }
+
+        Resource resource = fileStorageService.loadPostCoverImage(fileName);
+        if (resource == null) {
+            throw new IllegalArgumentException("Arquivo de imagem não encontrado no servidor.");
+        }
+
+        return resource;
     }
 
 }
