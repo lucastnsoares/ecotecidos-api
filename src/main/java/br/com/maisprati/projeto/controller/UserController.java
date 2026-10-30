@@ -161,15 +161,6 @@ public class UserController {
         return ResponseEntity.ok(associations);
     }
 
-    @GetMapping("/balance")
-    @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Consultar saldo", description = "Retorna o saldo atual de pontos de cashback do usuário autenticado.")
-    public ResponseEntity<CashbackBalanceResponseDTO> getBalance(@AuthenticationPrincipal UserDetails userDetails) {
-
-        CashbackBalanceResponseDTO response = userService.getUserBalance(userDetails.getUsername());
-        return ResponseEntity.ok(response);
-    }
-
     @GetMapping("/favorite-posts")
     @Operation(summary = "Listar posts favoritos", description = "Retorna, de forma paginada, os posts favoritos do usuário autenticado.")
     @ApiResponses({

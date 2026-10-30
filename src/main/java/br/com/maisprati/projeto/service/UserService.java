@@ -134,22 +134,6 @@ public class UserService {
         return new UserAssociationsResponseDTO(loggedInUser.getId(), managedCollectionPoints, operatedCollectionPoints);
     }
 
-    @Transactional(readOnly = true)
-    public CashbackBalanceResponseDTO getUserBalance(String username) {
-        User user = userRepository.findByEmail(username)
-                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
-
-        // Busca a carteira. Se o usuario nunca doou, a carteira não existe ainda, então retorna saldo ZERO.
-        return cashbackWalletRepository.findByUserId(user.getId())
-                .map(wallet -> CashbackBalanceResponseDTO.builder()
-                        .balance(wallet.getBalance())
-                        .updatedAt(wallet.getUpdatedAt())
-                        .build())
-                .orElseGet(() -> CashbackBalanceResponseDTO.builder()
-                        .balance(BigDecimal.ZERO)
-                        .updatedAt(Instant.now())
-                        .build());
-    }
 
     @Transactional(readOnly = true)
     public Page<PostSummaryResponseDTO> getFavoritePosts(String email, Pageable pageable) {
