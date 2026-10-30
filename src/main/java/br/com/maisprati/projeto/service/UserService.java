@@ -2,12 +2,15 @@ package br.com.maisprati.projeto.service;
 
 import br.com.maisprati.projeto.dto.request.UserChangePasswordRequestDTO;
 import br.com.maisprati.projeto.dto.request.UserEditProfileRequestDTO;
+import br.com.maisprati.projeto.dto.response.CashbackBalanceResponseDTO;
 import br.com.maisprati.projeto.dto.response.UserAssociationsResponseDTO;
 import br.com.maisprati.projeto.dto.response.UserResponseDTO;
 import br.com.maisprati.projeto.dto.response.UserUpdatedResponseDTO;
 import br.com.maisprati.projeto.model.entity.User;
+import br.com.maisprati.projeto.repository.CashbackWalletRepository;
 import br.com.maisprati.projeto.repository.UserRepository;
 import br.com.maisprati.projeto.util.PhoneUtils;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,10 +18,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+
 @Service
 @RequiredArgsConstructor
 public class UserService {
     private final UserRepository userRepository;
+    private final CashbackWalletRepository cashbackWalletRepository;
     private final PasswordEncoder encoder;
     private final TokenService tokenService;
     private final UserValidationService userValidationService;
@@ -119,6 +126,23 @@ public class UserService {
         var operatedCollectionPoints = collectionPointService.getCollectionPointsByUserOperator(user);
 
         return new UserAssociationsResponseDTO(loggedInUser.getId(), managedCollectionPoints, operatedCollectionPoints);
+    }
+
+    @Transactional(readOnly = true)
+    public CashbackBalanceResponseDTO getUserBalance(String username) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
+
+        // Busca a carteira. Se o usuario nunca doou, a carteira não existe ainda, então retorna saldo ZERO.
+        return cashbackWalletRepository.findByUserId(user.getId())
+                .map(wallet -> CashbackBalanceResponseDTO.builder()
+                        .balance(wallet.getBalance())
+                        .updatedAt(wallet.getUpdatedAt())
+                        .build())
+                .orElseGet(() -> CashbackBalanceResponseDTO.builder()
+                        .balance(BigDecimal.ZERO)
+                        .updatedAt(Instant.now())
+                        .build());
     }
 
 }

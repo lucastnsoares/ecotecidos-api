@@ -64,6 +64,9 @@ public class User implements UserDetails {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private CashbackWallet cashbackWallet;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return this.role.stream()

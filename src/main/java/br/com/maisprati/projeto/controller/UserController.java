@@ -2,11 +2,7 @@ package br.com.maisprati.projeto.controller;
 
 import br.com.maisprati.projeto.dto.request.UserChangePasswordRequestDTO;
 import br.com.maisprati.projeto.dto.request.UserEditProfileRequestDTO;
-import br.com.maisprati.projeto.dto.response.ErrorResponseDTO;
-import br.com.maisprati.projeto.dto.response.UserAssociationsResponseDTO;
-import br.com.maisprati.projeto.dto.response.UserResponseDTO;
-import br.com.maisprati.projeto.dto.response.UserUpdatedResponseDTO;
-import br.com.maisprati.projeto.dto.response.ValidationErrorResponseDTO;
+import br.com.maisprati.projeto.dto.response.*;
 import br.com.maisprati.projeto.model.entity.User;
 import br.com.maisprati.projeto.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,6 +24,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -158,5 +155,14 @@ public class UserController {
                         @AuthenticationPrincipal User loggedInUser) {
                 var associations = userService.getUserAssociations(loggedInUser);
                 return ResponseEntity.ok(associations);
+        }
+
+        @GetMapping("/balance")
+        @PreAuthorize("isAuthenticated()")
+        @Operation(summary = "Consultar saldo", description = "Retorna o saldo atual de pontos de cashback do usuário autenticado.")
+        public ResponseEntity<CashbackBalanceResponseDTO> getBalance(@AuthenticationPrincipal UserDetails userDetails) {
+
+                CashbackBalanceResponseDTO response = userService.getUserBalance(userDetails.getUsername());
+                return ResponseEntity.ok(response);
         }
 }
