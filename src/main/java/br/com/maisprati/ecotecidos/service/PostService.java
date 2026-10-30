@@ -1,5 +1,6 @@
 package br.com.maisprati.ecotecidos.service;
 
+import jakarta.persistence.EntityNotFoundException;
 import br.com.maisprati.ecotecidos.dto.request.PostCreateRequestDTO;
 import br.com.maisprati.ecotecidos.dto.request.PostDeleteRequestDTO;
 import br.com.maisprati.ecotecidos.dto.request.PostEditRequestDTO;
@@ -47,7 +48,7 @@ public class PostService {
     @Transactional
     public PostResponseDTO createPost(PostCreateRequestDTO dto, MultipartFile image, User loggedInUser) {
         Category category = categoryRepository.findById(dto.categoryId())
-                .orElseThrow(() -> new IllegalArgumentException("Categoria informada não foi encontrada."));
+                .orElseThrow(() -> new EntityNotFoundException("Categoria informada não foi encontrada."));
 
         validateAccessibilityAndCoverImage(image, dto.coverImageAlt());
 
@@ -98,7 +99,7 @@ public class PostService {
     @Transactional(readOnly = true)
     public PostResponseDTO findPostByIdAndIsPublishedTrue(Long id) {
         Post post = postRepository.findByIdAndIsPublishedTrue(id)
-                .orElseThrow(() -> new IllegalArgumentException("Post inexistente ou não disponível."));
+                .orElseThrow(() -> new EntityNotFoundException("Post inexistente ou não disponível."));
         return new PostResponseDTO(post);
     }
 
@@ -120,7 +121,7 @@ public class PostService {
     @Transactional
     public PostResponseDTO updatePost(Long id, PostEditRequestDTO dto, MultipartFile image) {
         Post post = postRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Post inexistente."));
+                .orElseThrow(() -> new EntityNotFoundException("Post inexistente."));
 
         if (post.getDeletedAt() != null) {
             throw new IllegalArgumentException("Não é possível atualizar um post que foi excluído.");
@@ -154,7 +155,7 @@ public class PostService {
         }
         if (dto.categoryId() != null) {
             Category category = categoryRepository.findById(dto.categoryId())
-                    .orElseThrow(() -> new IllegalArgumentException("Categoria informada não foi encontrada."));
+                    .orElseThrow(() -> new EntityNotFoundException("Categoria informada não foi encontrada."));
             post.setCategory(category);
         }
         if (dto.clothTypeIds() != null) {
@@ -176,7 +177,7 @@ public class PostService {
     @Transactional(readOnly = true)
     public AdminPostResponseDTO findPostById(Long id) {
         Post post = postRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Post inexistente ou não disponível"));
+                .orElseThrow(() -> new EntityNotFoundException("Post inexistente ou não disponível"));
         return new AdminPostResponseDTO(post);
     }
 
@@ -184,7 +185,7 @@ public class PostService {
     @Transactional
     public void deletePost(Long id, PostDeleteRequestDTO dto, User loggedInUser) {
         Post post = postRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Post inexistente."));
+                .orElseThrow(() -> new EntityNotFoundException("Post inexistente."));
         if (post.getDeletedAt() != null) {
             throw new IllegalArgumentException("Post já deletado anteriormente");
         }
@@ -225,7 +226,7 @@ public class PostService {
                     .filter(id -> !foundIds.contains(id))
                     .collect(Collectors.toSet());
 
-            throw new IllegalArgumentException(
+            throw new EntityNotFoundException(
                     "Os seguintes IDs de tipos de tecido não foram encontrados: " + missingIds);
         }
 
@@ -271,24 +272,17 @@ public class PostService {
         return postRepository.existsByCategory(category);
     }
 
-    @Transactional (readOnly = true)
-    public String findPostImageById(Long postId) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("Post inexistente."));
-        return post.getCoverImageUrl();
-    }
-
     @Transactional(readOnly = true)
     public Resource findImageByPostIdAndIsPublishedTrue(Long id) {
         Post post = postRepository.findByIdAndIsPublishedTrue(id)
-                .orElseThrow(() -> new IllegalArgumentException("Post inexistente ou não publicado."));
+                .orElseThrow(() -> new EntityNotFoundException("Post inexistente ou não publicado."));
         String imageUrl = post.getCoverImageUrl();
         if (imageUrl == null || imageUrl.isBlank()) {
-            throw new IllegalArgumentException("Post não possui imagem de capa.");
+            throw new EntityNotFoundException("Post não possui imagem de capa.");
         }
         Resource imageResource = fileStorageService.loadPostCoverImage(imageUrl);
         if (imageResource == null) {
-            throw new IllegalArgumentException("Imagem não encontrada no servidor.");
+            throw new EntityNotFoundException("Imagem não encontrada no servidor.");
         }
         return imageResource;
     }
@@ -296,16 +290,16 @@ public class PostService {
     @Transactional(readOnly = true)
     public Resource findImageByPostId(Long id) {
         Post post = postRepository.findByIdAndDeletedAtIsNull(id)
-            .orElseThrow(() -> new IllegalArgumentException("Post inexistente ou não disponível."));
+            .orElseThrow(() -> new EntityNotFoundException("Post inexistente ou não disponível."));
 
         String fileName = post.getCoverImageUrl();
         if (fileName == null || fileName.isBlank()) {
-            throw new IllegalArgumentException("O post informado não possui imagem.");
+            throw new EntityNotFoundException("O post informado não possui imagem.");
         }
 
         Resource resource = fileStorageService.loadPostCoverImage(fileName);
         if (resource == null) {
-            throw new IllegalArgumentException("Arquivo de imagem não encontrado no servidor.");
+            throw new EntityNotFoundException("Arquivo de imagem não encontrado no servidor.");
         }
 
         return resource;

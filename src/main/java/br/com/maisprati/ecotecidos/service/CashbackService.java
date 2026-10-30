@@ -53,7 +53,7 @@ public class CashbackService {
                 .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
 
         CashbackWallet wallet = cashbackWalletRepository.findByUserId(user.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Carteira não encontrada. Você ainda não possui saldo."));
+                .orElseThrow(() -> new EntityNotFoundException("Carteira não encontrada. Você ainda não possui saldo."));
 
         // 1. Valida se o usuário tem saldo suficiente
         if (wallet.getBalance().compareTo(request.amount()) < 0) {

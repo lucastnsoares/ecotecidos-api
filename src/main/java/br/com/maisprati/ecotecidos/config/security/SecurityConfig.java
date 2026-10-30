@@ -1,5 +1,6 @@
 package br.com.maisprati.ecotecidos.config.security;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,7 +42,7 @@ public class SecurityConfig {
                     .exceptionHandling(exception -> exception
                             .authenticationEntryPoint((request, response, authException) -> {
                                 response.setContentType("application/json;charset=UTF-8");
-                                response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                                 response.getWriter().write(String.format(
                                         "{\"timestamp\":\"%s\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Token de autenticação ausente ou inválido.\",\"path\":\"%s\"}",
                                         java.time.Instant.now(), request.getRequestURI()
@@ -51,7 +52,6 @@ public class SecurityConfig {
                     // Configuração das rotas
                     .authorizeHttpRequests(auth -> auth
                             .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                            .requestMatchers("/test/public").permitAll()
                             .requestMatchers("/auth/**", "/register", "/register/**").permitAll()
                             .requestMatchers("/error").permitAll()
                             .anyRequest().authenticated())

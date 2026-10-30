@@ -1,5 +1,6 @@
 package br.com.maisprati.ecotecidos.service;
 
+import jakarta.persistence.EntityNotFoundException;
 import br.com.maisprati.ecotecidos.dto.request.CategoryRequestDTO;
 import br.com.maisprati.ecotecidos.dto.response.CategoryResponseDTO;
 import br.com.maisprati.ecotecidos.model.entity.Category;
@@ -34,21 +35,24 @@ public class CategoryService {
 
     public CategoryResponseDTO findCategoryById(Long id) {
         Category category = categoryRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Categoria inexistente"));
+                .orElseThrow(() -> new EntityNotFoundException("Categoria inexistente"));
         return new CategoryResponseDTO(category);
     }
 
     public CategoryResponseDTO updateCategory(Long id, CategoryRequestDTO request) {
         Category category = categoryRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Categoria inexistente"));
-        category.setName(request.name());
+                .orElseThrow(() -> new EntityNotFoundException("Categoria inexistente"));
+        if (categoryRepository.existsByNameIgnoreCaseAndIdNot(request.name().trim(), id)) {
+            throw new IllegalArgumentException("Categoria já existente");
+        }
+        category.setName(request.name().trim());
         categoryRepository.save(category);
         return new CategoryResponseDTO(category);
     }
 
     public void deleteCategory(Long id) {
         Category category = categoryRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Categoria inexistente"));
+                .orElseThrow(() -> new EntityNotFoundException("Categoria inexistente"));
 
         if (postService.existsByCategory(category)) {
             throw new IllegalArgumentException("Não é possível excluir a categoria, pois existem posts associados a ela");

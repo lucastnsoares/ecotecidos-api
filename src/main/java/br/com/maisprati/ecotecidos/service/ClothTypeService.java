@@ -1,5 +1,6 @@
 package br.com.maisprati.ecotecidos.service;
 
+import jakarta.persistence.EntityNotFoundException;
 import br.com.maisprati.ecotecidos.dto.request.ClothTypeRequestDTO;
 import br.com.maisprati.ecotecidos.dto.request.ClothTypeUpdateRequestDTO;
 import br.com.maisprati.ecotecidos.dto.response.ClothTypeResponseDTO;
@@ -43,14 +44,14 @@ public class ClothTypeService {
     @Transactional(readOnly = true)
     public ClothTypeResponseDTO findById(Long id) {
         ClothType clothType = clothTypeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Tipo de tecido não localizado"));
+                .orElseThrow(() -> new EntityNotFoundException("Tipo de tecido não localizado"));
         return new ClothTypeResponseDTO(clothType);
     }
 
     @Transactional
     public ClothTypeResponseDTO updateClothType(Long id, ClothTypeUpdateRequestDTO dto) {
         ClothType clothType = clothTypeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Tipo de tecido não localizado."));
+                .orElseThrow(() -> new EntityNotFoundException("Tipo de tecido não localizado."));
 
         if (dto.name() != null && !dto.name().isBlank()) {
             if (clothTypeRepository.existsByNameIgnoreCaseAndIdNot(dto.name(), clothType.getId())) {

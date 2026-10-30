@@ -1,5 +1,6 @@
 package br.com.maisprati.ecotecidos.service;
 
+import jakarta.persistence.EntityNotFoundException;
 import br.com.maisprati.ecotecidos.dto.request.UserUpdateRequestDTO;
 import br.com.maisprati.ecotecidos.dto.response.UserResponseDTO;
 import br.com.maisprati.ecotecidos.model.entity.User;
@@ -19,7 +20,7 @@ public class AdminService {
 
     @Transactional
     public UserResponseDTO updateUser(UserUpdateRequestDTO dto, Long id) {
-        User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado no banco de dados."));
+        User user = userRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado no banco de dados."));
         if (dto.document() != null && !dto.document().isBlank()) {
             String cleanDoc = dto.document().replaceAll("[.\\-/]", "").trim().toUpperCase();
             userValidationService.validateDocumentUpdate(cleanDoc, user.getDocument());
@@ -41,7 +42,7 @@ public class AdminService {
 
     @Transactional(readOnly = true)
     public UserResponseDTO findById(Long id) {
-        User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado no banco de dados."));
+        User user = userRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado no banco de dados."));
         return toAdminResponse(user);
     }
 

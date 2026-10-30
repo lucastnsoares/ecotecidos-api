@@ -20,10 +20,10 @@ import static org.springframework.data.web.config.EnableSpringDataWebSupport.Pag
 		scheme = "bearer",
 		bearerFormat = "JWT"
 )
-public class ProjetoApplication {
+public class EcotecidosApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(ProjetoApplication.class, args);
+		SpringApplication.run(EcotecidosApplication.class, args);
 	}
 
 }

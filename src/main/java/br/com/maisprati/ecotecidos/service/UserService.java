@@ -38,7 +38,7 @@ public class UserService {
     @Transactional
     public void changePassword(User loggedInUser, UserChangePasswordRequestDTO dto) {
         User user = userRepository.findById(loggedInUser.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado no banco de dados."));
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado no banco de dados."));
         if (!encoder.matches(dto.currentPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("A senha atual informada está incorreta.");
         }
@@ -49,7 +49,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserResponseDTO getUserData(User loggedInUser) {
         User user = userRepository.findById(loggedInUser.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado no banco de dados."));
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado no banco de dados."));
         return new UserResponseDTO(user);
     }
 
@@ -64,7 +64,7 @@ public class UserService {
             UserEditProfileRequestDTO dto,
             MultipartFile image) {
         User user = userRepository.findById(loggedInUser.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado no banco de dados."));
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado no banco de dados."));
 
         if (dto.removeAvatar() && image != null && !image.isEmpty()) {
             throw new IllegalArgumentException("Não é possível remover e enviar um novo avatar na mesma operação.");
@@ -99,11 +99,11 @@ public class UserService {
     @Transactional(readOnly = true)
     public Resource getAvatar(User loggedInUser) {
         User user = userRepository.findById(loggedInUser.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado no banco de dados."));
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado no banco de dados."));
 
         Resource avatar = fileStorageService.loadImage(user.getAvatarUrl());
         if (avatar == null) {
-            throw new IllegalArgumentException("Usuário não possui imagem de perfil.");
+            throw new EntityNotFoundException("Usuário não possui imagem de perfil.");
         }
         return avatar;
     }
@@ -111,11 +111,11 @@ public class UserService {
     @Transactional(readOnly = true)
     public Resource getAvatarForAdmin(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado no banco de dados."));
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado no banco de dados."));
 
         Resource avatar = fileStorageService.loadImage(user.getAvatarUrl());
         if (avatar == null) {
-            throw new IllegalArgumentException("Usuário não possui imagem de perfil.");
+            throw new EntityNotFoundException("Usuário não possui imagem de perfil.");
         }
         return avatar;
     }
@@ -123,7 +123,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserAssociationsResponseDTO getUserAssociations(User loggedInUser) {
         User user = userRepository.findById(loggedInUser.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado no banco de dados."));
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado no banco de dados."));
 
         var managedCollectionPoints = collectionPointService.getCollectionPointsByUserManager(user);
         var operatedCollectionPoints = collectionPointService.getCollectionPointsByUserOperator(user);

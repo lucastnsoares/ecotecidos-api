@@ -23,7 +23,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.core.io.Resource;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -180,7 +179,7 @@ public class CollectionPointService {
         @Transactional(readOnly = true)
         public CollectionPointResponseDTO getCollectionPointById(Long id) {
                 CollectionPoint collectionPoint = collectionPointRepository.findById(id)
-                        .orElseThrow(() -> new IllegalArgumentException("Ponto de coleta não encontrado."));
+                        .orElseThrow(() -> new EntityNotFoundException("Ponto de coleta não encontrado."));
                 return mapToDTO(collectionPoint);
         }
 
@@ -188,7 +187,7 @@ public class CollectionPointService {
         public CollectionPointResponseDTO getCollectionPointByIdAndStatusActive(Long id) {
                 CollectionPoint collectionPoint = collectionPointRepository.findById(id)
                         .filter(point -> point.getStatus() == CollectionPointStatus.ACTIVE)
-                        .orElseThrow(() -> new IllegalArgumentException("Ponto de coleta não encontrado ou indisponível."));
+                        .orElseThrow(() -> new EntityNotFoundException("Ponto de coleta não encontrado ou indisponível."));
                 return mapToDTO(collectionPoint);
         }
 
@@ -196,16 +195,16 @@ public class CollectionPointService {
         public Resource findImageByCollectionPointId(Long id) {
                 CollectionPoint point = collectionPointRepository.findById(id)
                         .filter(entity -> entity.getStatus() == CollectionPointStatus.ACTIVE)
-                        .orElseThrow(() -> new IllegalArgumentException(
+                        .orElseThrow(() -> new EntityNotFoundException(
                                 "Ponto de coleta não encontrado ou indisponível."));
 
                 if (point.getPointPictureUrl() == null || point.getPointPictureUrl().isBlank()) {
-                        throw new IllegalArgumentException("O ponto de coleta não possui imagem.");
+                        throw new EntityNotFoundException("O ponto de coleta não possui imagem.");
                 }
 
                 Resource resource = fileStorageService.loadImage(point.getPointPictureUrl());
                 if (resource == null) {
-                        throw new IllegalArgumentException("Arquivo de imagem não encontrado no servidor.");
+                        throw new EntityNotFoundException("Arquivo de imagem não encontrado no servidor.");
                 }
                 return resource;
         }
@@ -217,12 +216,12 @@ public class CollectionPointService {
                                 "Ponto de coleta não encontrado."));
 
                 if (point.getPointPictureUrl() == null || point.getPointPictureUrl().isBlank()) {
-                        throw new IllegalArgumentException("O ponto de coleta não possui imagem.");
+                        throw new EntityNotFoundException("O ponto de coleta não possui imagem.");
                 }
 
                 Resource resource = fileStorageService.loadImage(point.getPointPictureUrl());
                 if (resource == null) {
-                        throw new IllegalArgumentException("Arquivo de imagem não encontrado no servidor.");
+                        throw new EntityNotFoundException("Arquivo de imagem não encontrado no servidor.");
                 }
                 return resource;
         }
@@ -239,13 +238,13 @@ public class CollectionPointService {
                         String imagePath = proposedUpdate.imageUrl();
 
                         if (imagePath == null || imagePath.isBlank()) {
-                                throw new IllegalArgumentException(
+                                throw new EntityNotFoundException(
                                         "A edição pendente não possui uma nova imagem.");
                         }
 
                         Resource resource = fileStorageService.loadImage(imagePath);
                         if (resource == null) {
-                                throw new IllegalArgumentException(
+                                throw new EntityNotFoundException(
                                         "Arquivo da imagem pendente não encontrado no servidor.");
                         }
                         return resource;
@@ -501,19 +500,22 @@ public class CollectionPointService {
         @Transactional
         public CollectionPointUsersResponseDTO addOperatorToCollectionPoint(Long id, OperatorCreateRequestDTO operator, String managerEmail) {
                 CollectionPoint collectionPoint = collectionPointRepository.findById(id)
-                        .orElseThrow(() -> new IllegalArgumentException("Ponto de coleta não encontrado."));
+                        .orElseThrow(() -> new EntityNotFoundException("Ponto de coleta não encontrado."));
 
                 User manager = userRepository.findByEmail(managerEmail)
-                        .orElseThrow(() -> new IllegalArgumentException("Gerente não encontrado."));
+                        .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
 
-                if (!collectionPoint.getManagers().contains(manager)) {
-                        throw new BadCredentialsException("Você não possui permissão para adicionar operadores a este ponto de coleta.");
+                boolean isAdmin = manager.getRole().contains(Role.ADMIN);
+                boolean isManager = collectionPoint.getManagers().contains(manager);
+
+                if (!isAdmin && !isManager) {
+                        throw new AccessDeniedException("Você não possui permissão para adicionar operadores a este ponto de coleta.");
                 }
 
                 String cleanDocument = operator.document().replaceAll("\\D", "");
 
                 User user = userRepository.findByDocument(cleanDocument)
-                        .orElseThrow(() -> new IllegalArgumentException("Operador não encontrado."));
+                        .orElseThrow(() -> new EntityNotFoundException("Operador não encontrado."));
 
                 if(user.getRole().stream().noneMatch(role -> role.equals("ROLE_PONTO_COLETA_OPERADOR"))) {
                         user.getRole().add(Role.PONTO_COLETA_OPERADOR);
@@ -534,12 +536,17 @@ public class CollectionPointService {
         @Transactional(readOnly = true)
         public CollectionPointUsersResponseDTO getOperatorsByCollectionPointId(Long id, String managerEmail) {
                 CollectionPoint collectionPoint = collectionPointRepository.findById(id)
-                        .orElseThrow(() -> new IllegalArgumentException("Ponto de coleta não encontrado."));
+                        .orElseThrow(() -> new EntityNotFoundException("Ponto de coleta não encontrado."));
 
-                collectionPoint.getManagers().stream()
-                        .filter(manager -> manager.getEmail().equals(managerEmail))
-                        .findFirst()
-                        .orElseThrow(() -> new BadCredentialsException("Você não possui permissão para visualizar os operadores deste ponto de coleta."));
+                User currentUser = userRepository.findByEmail(managerEmail)
+                        .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
+
+                boolean isAdmin = currentUser.getRole().contains(Role.ADMIN);
+                boolean isManager = collectionPoint.getManagers().contains(currentUser);
+
+                if (!isAdmin && !isManager) {
+                        throw new AccessDeniedException("Você não possui permissão para visualizar os operadores deste ponto de coleta.");
+                }
 
                 Set<UserSummaryResponseDTO> managers = collectionPoint.getManagers().stream()
                         .map(UserSummaryResponseDTO::new)
