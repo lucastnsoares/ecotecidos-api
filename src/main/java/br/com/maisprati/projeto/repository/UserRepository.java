@@ -39,5 +39,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Page<CollectionPoint> findFavoriteCollectionPointsByEmail(String email, Pageable pageable);
 
     @Query("SELECT COUNT(c) FROM User u JOIN u.favoriteCollectionPoints c WHERE u.email = :email")
-    Long countFavoriteCollectionPoints(String username);
+    Long countFavoriteCollectionPoints(String email);
 }
