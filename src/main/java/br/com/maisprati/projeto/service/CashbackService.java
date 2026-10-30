@@ -9,6 +9,7 @@ import br.com.maisprati.projeto.model.entity.CashbackWallet;
 import br.com.maisprati.projeto.model.entity.Transaction;
 import br.com.maisprati.projeto.model.entity.User;
 import br.com.maisprati.projeto.model.enums.TransactionStatus;
+import br.com.maisprati.projeto.model.enums.TransactionType;
 import br.com.maisprati.projeto.repository.CashbackWalletRepository;
 import br.com.maisprati.projeto.repository.TransactionRepository;
 import br.com.maisprati.projeto.repository.UserRepository;
@@ -82,8 +83,7 @@ public class CashbackService {
     }
 
     @Transactional(readOnly = true)
-    public Page<TransactionResponseDTO> getTransactionHistory(String username, String typeFilter, Pageable pageable) {
-        User user = userRepository.findByEmail(username)
+    public Page<TransactionResponseDTO> getTransactionHistory(String username, TransactionType typeFilter, Pageable pageable) {        User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado."));
 
         return cashbackWalletRepository.findByUserId(user.getId())
@@ -91,13 +91,14 @@ public class CashbackService {
                     Page<Transaction> transactions;
 
                     // Aplica o filtro de Herança para buscar os ganhos ou saques
-                    if ("CREDIT".equalsIgnoreCase(typeFilter)) {
+                    if (typeFilter == TransactionType.CREDIT) {
                         transactions = transactionRepository.findByWalletIdAndType(wallet.getId(), CashbackCredit.class, pageable);
-                    } else if ("DEBIT".equalsIgnoreCase(typeFilter)) {
+                    } else if (typeFilter == TransactionType.DEBIT) {
                         transactions = transactionRepository.findByWalletIdAndType(wallet.getId(), CashbackDebit.class, pageable);
                     } else {
                         transactions = transactionRepository.findByWalletIdOrderByDateTimeTransactionDesc(wallet.getId(), pageable);
                     }
+
                     return transactions.map(this::mapToTransactionDTO);
                 })
                 .orElseGet(Page::empty);

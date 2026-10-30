@@ -3,6 +3,7 @@ package br.com.maisprati.projeto.controller;
 import br.com.maisprati.projeto.dto.request.CashbackRedeemRequestDTO;
 import br.com.maisprati.projeto.dto.response.CashbackBalanceResponseDTO;
 import br.com.maisprati.projeto.dto.response.TransactionResponseDTO;
+import br.com.maisprati.projeto.model.enums.TransactionType;
 import br.com.maisprati.projeto.service.CashbackService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -47,7 +48,7 @@ public class CashbackController {
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Histórico da carteira", description = "Lista as transações. Filtre opcionalmente por filter=CREDIT ou filter=DEBIT.")
     public ResponseEntity<Page<TransactionResponseDTO>> getHistory(
-            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) TransactionType filter,
             @ParameterObject Pageable pageable,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(cashbackService.getTransactionHistory(userDetails.getUsername(), filter, pageable));
