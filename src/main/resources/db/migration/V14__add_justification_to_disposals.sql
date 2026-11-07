@@ -1,0 +1,1 @@
+ALTER TABLE disposals ADD COLUMN justification VARCHAR(255);
