@@ -365,7 +365,7 @@ class CollectionPointServiceTest {
                 .thenReturn(Optional.of(point));
 
         assertThrows(
-                IllegalArgumentException.class,
+                EntityNotFoundException.class,
                 () -> collectionPointService
                         .getCollectionPointByIdAndStatusActive(9L)
         );
@@ -396,7 +396,7 @@ class CollectionPointServiceTest {
                 .thenReturn(Optional.of(point));
 
         assertThrows(
-                IllegalArgumentException.class,
+                EntityNotFoundException.class,
                 () -> collectionPointService
                         .getCollectionPointByIdAndStatusActive(10L)
         );
@@ -866,7 +866,7 @@ class CollectionPointServiceTest {
         when(collectionPointRepository.findById(collectionPointId))
                 .thenReturn(Optional.empty());
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(EntityNotFoundException.class,
                 () -> collectionPointService.getCollectionPointByIdAndStatusActive(collectionPointId));
 
         verify(collectionPointRepository).findById(collectionPointId);
@@ -882,7 +882,7 @@ class CollectionPointServiceTest {
         when(collectionPointRepository.findById(collectionPointId))
                 .thenReturn(Optional.of(point));
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(EntityNotFoundException.class,
                 () -> collectionPointService.getCollectionPointByIdAndStatusActive(collectionPointId));
 
         assertEquals(CollectionPointStatus.SUSPENDED, point.getStatus());
@@ -899,7 +899,7 @@ class CollectionPointServiceTest {
         when(collectionPointRepository.findById(collectionPointId))
                 .thenReturn(Optional.of(point));
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(EntityNotFoundException.class,
                 () -> collectionPointService.getCollectionPointByIdAndStatusActive(collectionPointId));
 
         assertNull(point.getStatus());
@@ -913,7 +913,7 @@ class CollectionPointServiceTest {
         when(collectionPointRepository.findById(null))
                 .thenReturn(Optional.empty());
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(EntityNotFoundException.class,
                 () -> collectionPointService.getCollectionPointByIdAndStatusActive(null));
 
         verify(collectionPointRepository).findById(null);
