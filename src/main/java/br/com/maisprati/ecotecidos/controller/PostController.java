@@ -64,6 +64,10 @@ public class PostController {
         @RequestParam(required = false)
         String searchTerm,
 
+        @Parameter(description = "Termo de busca pelo tipo de tecido")
+        @RequestParam(required = false)
+        String clothType,
+
         @Parameter(description = "Lista de tags para filtrar os posts. Se não informado, retorna posts de todas as tags.")
         @RequestParam(required = false)
         Set<String> tags,
@@ -71,7 +75,7 @@ public class PostController {
         @ParameterObject
         @PageableDefault(page = 0, size = 10, sort = "createdAt", direction = Sort.Direction.ASC)
         Pageable pageable) {
-        return ResponseEntity.ok(postService.findAllByPublishedTrue(categoryId, searchTerm, tags, pageable));
+        return ResponseEntity.ok(postService.findAllByPublishedTrue(categoryId, searchTerm, clothType, tags, pageable));
     }
 
     @GetMapping("/{id}")
@@ -89,6 +93,23 @@ public class PostController {
     public ResponseEntity<PostResponseDTO> findPostByIdAndIsPublishedTrue(
         @Parameter(description = "ID do post publicado", example = "1") @PathVariable Long id) {
         return ResponseEntity.ok(postService.findPostByIdAndIsPublishedTrue(id));
+    }
+
+    @GetMapping("/slug/{slug}")
+    @Operation(summary = "Retornar um post específico pelo slug", description = "Retorna os detalhes de um post publicado com base no seu slug. Usuários autenticados podem acessar este endpoint.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Post publicado localizado com sucesso.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = PostResponseDTO.class))),
+        @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/api/v1/posts/slug/como-reciclar-algodao\"}"))),
+        @ApiResponse(responseCode = "404", description = "Post inexistente ou não publicado.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Post inexistente ou não disponível.\", \"path\": \"/api/v1/posts/slug/post-inexistente\"}")))
+    })
+    public ResponseEntity<PostResponseDTO> findPostBySlugAndIsPublishedTrue(
+        @Parameter(description = "Slug do post publicado", example = "como-reciclar-algodao") @PathVariable String slug) {
+        return ResponseEntity.ok(postService.findPostBySlugAndIsPublishedTrue(slug));
     }
 
     @GetMapping("/{id}/image")

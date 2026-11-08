@@ -84,15 +84,19 @@ public class PostService {
     }
 
     @Transactional(readOnly = true)
-    public Page<PostSummaryResponseDTO> findAllByPublishedTrue(Long categoryId, String searchTerm, Set<String> tags, Pageable pageable) {
+    public Page<PostSummaryResponseDTO> findAllByPublishedTrue(Long categoryId, String searchTerm, String clothType, Set<String> tags, Pageable pageable) {
         String termPattern = (searchTerm != null && !searchTerm.isBlank()) 
-            ? "%" + searchTerm.toLowerCase() + "%" 
+            ? "%" + searchTerm.trim().toLowerCase() + "%" 
+            : null;
+
+        String clothTypePattern = (clothType != null && !clothType.isBlank())
+            ? "%" + clothType.trim().toLowerCase() + "%"
             : null;
 
         boolean hasTags = (tags != null && !tags.isEmpty());
 
         Set<String> tagsParam = hasTags ? tags : Collections.emptySet();
-        return postRepository.findAllPublishedWithFilters(categoryId, termPattern, hasTags, tagsParam, pageable)
+        return postRepository.findAllPublishedWithFilters(categoryId, termPattern, clothTypePattern, hasTags, tagsParam, pageable)
                 .map(PostSummaryResponseDTO::new);
     }
 
@@ -103,17 +107,28 @@ public class PostService {
         return new PostResponseDTO(post);
     }
 
+    @Transactional(readOnly = true)
+    public PostResponseDTO findPostBySlugAndIsPublishedTrue(String slug) {
+        Post post = postRepository.findBySlugAndIsPublishedTrueAndDeletedAtIsNull(slug.trim().toLowerCase())
+                .orElseThrow(() -> new EntityNotFoundException("Post inexistente ou não disponível."));
+        return new PostResponseDTO(post);
+    }
+
     // Apenas ADMIN
     @Transactional(readOnly = true)
-    public Page<AdminPostSummaryResponseDTO> findAllPosts(Long categoryId, String searchTerm, Set<String> tags, Pageable pageable) {
+    public Page<AdminPostSummaryResponseDTO> findAllPosts(Long categoryId, String searchTerm, String clothType, Set<String> tags, Pageable pageable) {
         String termPattern = (searchTerm != null && !searchTerm.isBlank()) 
-            ? "%" + searchTerm.toLowerCase() + "%" 
+            ? "%" + searchTerm.trim().toLowerCase() + "%" 
+            : null;
+
+        String clothTypePattern = (clothType != null && !clothType.isBlank())
+            ? "%" + clothType.trim().toLowerCase() + "%"
             : null;
 
         boolean hasTags = (tags != null && !tags.isEmpty());
 
         Set<String> tagsParam = hasTags ? tags : Collections.emptySet();
-        return postRepository.findAllWithCategoryFilter(categoryId, termPattern, hasTags, tagsParam, pageable)
+        return postRepository.findAllWithCategoryFilter(categoryId, termPattern, clothTypePattern, hasTags, tagsParam, pageable)
                 .map(AdminPostSummaryResponseDTO::new);
     }
 
@@ -177,6 +192,14 @@ public class PostService {
     @Transactional(readOnly = true)
     public AdminPostResponseDTO findPostById(Long id) {
         Post post = postRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Post inexistente ou não disponível"));
+        return new AdminPostResponseDTO(post);
+    }
+
+    // apenas ADMIN
+    @Transactional(readOnly = true)
+    public AdminPostResponseDTO findPostBySlug(String slug) {
+        Post post = postRepository.findBySlug(slug.trim().toLowerCase())
                 .orElseThrow(() -> new EntityNotFoundException("Post inexistente ou não disponível"));
         return new AdminPostResponseDTO(post);
     }

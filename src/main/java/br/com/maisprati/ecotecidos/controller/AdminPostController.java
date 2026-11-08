@@ -82,12 +82,16 @@ public class AdminPostController {
             @RequestParam(required = false)
             String searchTerm,
 
+            @Parameter(description = "Termo de busca pelo tipo de tecido")
+            @RequestParam(required = false)
+            String clothType,
+
             @Parameter(description = "Tags para filtrar os posts.")
             @RequestParam(required = false)
             Set<String> tags,
 
             @ParameterObject @PageableDefault(page = 0, size = 10, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(postService.findAllPosts(categoryId, searchTerm, tags, pageable));
+        return ResponseEntity.ok(postService.findAllPosts(categoryId, searchTerm, clothType, tags, pageable));
     }
 
     @GetMapping("/{id}")
@@ -108,6 +112,26 @@ public class AdminPostController {
         public ResponseEntity<AdminPostResponseDTO> findPostById(
             @Parameter(description = "ID do post", example = "1") @PathVariable Long id) {
         return ResponseEntity.ok(postService.findPostById(id));
+    }
+
+    @GetMapping("/slug/{slug}")
+    @Operation(summary = "Buscar um post específico por slug", description = "Retorna um post específico com base no slug fornecido, independente se publicado ou não. Apenas usuários com role ADMIN podem acessar este endpoint.")
+        @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Post localizado com sucesso.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = AdminPostResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Token de autenticação ausente ou inválido.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 401, \"error\": \"Unauthorized\", \"message\": \"Token de autenticação ausente ou inválido.\", \"path\": \"/api/v1/admin/posts/slug/como-reciclar-algodao\"}"))),
+            @ApiResponse(responseCode = "403", description = "Acesso negado. Requer perfil ADMIN.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 403, \"error\": \"Forbidden\", \"message\": \"Você não possui autorização para acessar este recurso.\", \"path\": \"/api/v1/admin/posts/slug/como-reciclar-algodao\"}"))),
+            @ApiResponse(responseCode = "404", description = "Post não encontrado.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponseDTO.class),
+                    examples = @ExampleObject(value = "{\"timestamp\": \"2026-08-27T00:00:00Z\", \"status\": 404, \"error\": \"Not Found\", \"message\": \"Post inexistente ou não disponível\", \"path\": \"/api/v1/admin/posts/slug/post-inexistente\"}")))
+        })
+    public ResponseEntity<AdminPostResponseDTO> findPostBySlug(
+            @Parameter(description = "Slug do post", example = "como-reciclar-algodao") @PathVariable String slug) {
+        return ResponseEntity.ok(postService.findPostBySlug(slug));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

@@ -18,54 +18,66 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     boolean existsBySlug(String slug);
     Page<Post> findAllByPublishedTrue(Pageable pageable);
 	Optional<Post> findByIdAndIsPublishedTrue(Long id);
+    Optional<Post> findBySlugAndIsPublishedTrueAndDeletedAtIsNull(String slug);
+    Optional<Post> findBySlug(String slug);
 
     @Query(
-        value = """
+            value = """
             SELECT DISTINCT p FROM Post p 
             LEFT JOIN p.tags t 
+            LEFT JOIN p.clothTypes ct 
             WHERE p.isPublished = true 
               AND p.deletedAt IS NULL 
               AND (:categoryId IS NULL OR p.category.id = :categoryId) 
-              AND (:searchTerm IS NULL OR lower(p.title) LIKE :searchTerm OR lower(p.summary) LIKE :searchTerm) 
+              AND (:clothTypeName IS NULL OR lower(ct.name) LIKE :clothTypeName)
+              AND (:searchTerm IS NULL OR lower(p.title) LIKE :searchTerm OR lower(p.summary) LIKE :searchTerm OR lower(p.slug) LIKE :searchTerm) 
               AND (:hasTags = false OR t IN :tags)
         """,
-        countQuery = """
+            countQuery = """
             SELECT COUNT(DISTINCT p) FROM Post p 
             LEFT JOIN p.tags t 
+            LEFT JOIN p.clothTypes ct 
             WHERE p.isPublished = true 
               AND p.deletedAt IS NULL 
               AND (:categoryId IS NULL OR p.category.id = :categoryId) 
-              AND (:searchTerm IS NULL OR lower(p.title) LIKE :searchTerm OR lower(p.summary) LIKE :searchTerm) 
+              AND (:clothTypeName IS NULL OR lower(ct.name) LIKE :clothTypeName)
+              AND (:searchTerm IS NULL OR lower(p.title) LIKE :searchTerm OR lower(p.summary) LIKE :searchTerm OR lower(p.slug) LIKE :searchTerm) 
               AND (:hasTags = false OR t IN :tags)
         """
     )
     Page<Post> findAllPublishedWithFilters(
             @Param("categoryId") Long categoryId,
             @Param("searchTerm") String searchTerm,
+            @Param("clothTypeName") String clothTypeName,
             @Param("hasTags") boolean hasTags,
             @Param("tags") Set<String> tags,
             Pageable pageable
     );
 
     @Query(
-        value = """
+            value = """
             SELECT DISTINCT p FROM Post p 
             LEFT JOIN p.tags t 
+            LEFT JOIN p.clothTypes ct
             WHERE (:categoryId IS NULL OR p.category.id = :categoryId) 
-              AND (:searchTerm IS NULL OR lower(p.title) LIKE :searchTerm OR lower(p.summary) LIKE :searchTerm) 
+              AND (:clothTypeName IS NULL OR lower(ct.name) LIKE :clothTypeName)
+              AND (:searchTerm IS NULL OR lower(p.title) LIKE :searchTerm OR lower(p.summary) LIKE :searchTerm OR lower(p.slug) LIKE :searchTerm) 
               AND (:hasTags = false OR t IN :tags)
         """,
-        countQuery = """
+            countQuery = """
             SELECT COUNT(DISTINCT p) FROM Post p 
             LEFT JOIN p.tags t 
+            LEFT JOIN p.clothTypes ct
             WHERE (:categoryId IS NULL OR p.category.id = :categoryId) 
-              AND (:searchTerm IS NULL OR lower(p.title) LIKE :searchTerm OR lower(p.summary) LIKE :searchTerm) 
+              AND (:clothTypeName IS NULL OR lower(ct.name) LIKE :clothTypeName)
+              AND (:searchTerm IS NULL OR lower(p.title) LIKE :searchTerm OR lower(p.summary) LIKE :searchTerm OR lower(p.slug) LIKE :searchTerm) 
               AND (:hasTags = false OR t IN :tags)
         """
     )
     Page<Post> findAllWithCategoryFilter(
             @Param("categoryId") Long categoryId,
             @Param("searchTerm") String searchTerm,
+            @Param("clothTypeName") String clothTypeName,
             @Param("hasTags") boolean hasTags,
             @Param("tags") Set<String> tags,
             Pageable pageable
