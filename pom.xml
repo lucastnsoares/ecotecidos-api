@@ -14,7 +14,7 @@
 
     <groupId>br.com.maisprati</groupId>
     <artifactId>ecotecidos</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 
     <name>ecotecidos</name>
     <description>API REST da plataforma Ecotecidos - Projeto Final +PraTi</description>

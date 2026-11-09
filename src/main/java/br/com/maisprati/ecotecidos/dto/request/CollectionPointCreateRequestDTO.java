@@ -22,14 +22,6 @@ public class CollectionPointCreateRequestDTO {
     @Valid
     private AddressRequestDTO address;
 
-    @Schema(description = "Latitude geográfica do local", example = "-23.561414")
-    @NotNull(message = "A latitude é obrigatória.")
-    private BigDecimal latitude;
-
-    @Schema(description = "Longitude geográfica do local", example = "-46.655881")
-    @NotNull(message = "A longitude é obrigatória.")
-    private BigDecimal longitude;
-
     @Schema(hidden = true)
     private String imageUrl;
 
@@ -75,6 +67,14 @@ public class CollectionPointCreateRequestDTO {
         @Schema(description = "Código de Endereçamento Postal (somente números)", example = "01310100")
         @NotBlank(message = "O CEP é obrigatório.")
         private String zipCode;
+
+        @Schema(description = "Latitude geográfica do local", example = "-23.561414")
+        @NotNull(message = "A latitude é obrigatória.")
+        private BigDecimal latitude;
+
+        @Schema(description = "Longitude geográfica do local", example = "-46.655881")
+        @NotNull(message = "A longitude é obrigatória.")
+        private BigDecimal longitude;
     }
 
     @Data

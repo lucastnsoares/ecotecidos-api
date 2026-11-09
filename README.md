@@ -4,7 +4,7 @@
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.0.7-6DB33F?logo=springboot&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-1.0.1-blue)
 
 API RESTful da plataforma **Ecotecidos**, desenvolvida como projeto de conclusão do curso de **Desenvolvedor Full Stack (+PraTi)**. A solução conecta doadores de resíduos têxteis a pontos de coleta parceiros, incentivando a economia circular por meio de **cashback** e **educação ambiental**.
 
@@ -272,11 +272,11 @@ Certifique-se de que o PostgreSQL está ativo, que o banco configurado em `DB_NA
 # Executar a suíte de testes automatizados
 ./mvnw test
 
-# Gerar o pacote executável de produção em target/ecotecidos-1.0.0.jar
+# Gerar o pacote executável de produção em target/ecotecidos-1.0.1.jar
 ./mvnw clean package -DskipTests
 
 # Executar o JAR gerado diretamente no perfil de produção
-java -jar target/ecotecidos-1.0.0.jar --spring.profiles.active=prod
+java -jar target/ecotecidos-1.0.1.jar --spring.profiles.active=prod
 ```
 
 ---
