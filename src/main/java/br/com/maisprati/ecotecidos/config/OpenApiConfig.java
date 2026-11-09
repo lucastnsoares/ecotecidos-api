@@ -2,7 +2,6 @@ package br.com.maisprati.ecotecidos.config;
 
 import io.swagger.v3.oas.models.ExternalDocumentation;
 import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -19,7 +18,7 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("Ecotecidos API")
-                        .version("0.0.1")
+                        .version("1.0.0")
                         .description("""
                                 API REST do projeto **Ecotecidos**, desenvolvido como projeto de conclusão do curso de Desenvolvedor Full Stack da +PraTi.
 
@@ -36,9 +35,15 @@ public class OpenApiConfig {
 
                                 **Erros:** respostas de erro seguem o formato `ErrorResponseDTO` \
                                 (`timestamp`, `status`, `error`, `message`, `path`). Erros de validação incluem também `fieldErrors`.
-                                """)
-                        .contact(new Contact()
-                                .name("Equipe Ecotecidos")))
+
+                                **Equipe de Desenvolvimento:**
+                                - [Alan Silva](https://github.com/AlanMatheus18)
+                                - [Bruna Santiago](https://github.com/brunasdr9412)
+                                - [Eduardo Podgaiskis](https://github.com/eduardopodgaiskis0afk)
+                                - [Lucas Soares](https://github.com/lucastnsoares)
+                                - [Luis Carlos Paulon](https://github.com/carlospaulon)
+                                - [Rafael Kuchla Flores](https://github.com/rafael-kuchla-flores)
+                                """))
                 .externalDocs(new ExternalDocumentation()
                         .description("Repositório do Projeto - GitHub")
                         .url("https://github.com/lucastnsoares/ecotecidos-api"));
