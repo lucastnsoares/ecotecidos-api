@@ -18,7 +18,7 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("Ecotecidos API")
-                        .version("1.0.0")
+                        .version("1.0.1")
                         .description("""
                                 API REST do projeto **Ecotecidos**, desenvolvido como projeto de conclusão do curso de Desenvolvedor Full Stack da +PraTi.
 
