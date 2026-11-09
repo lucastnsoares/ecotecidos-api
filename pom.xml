@@ -14,10 +14,10 @@
 
     <groupId>br.com.maisprati</groupId>
     <artifactId>ecotecidos</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
 
-    <name/>
-    <description/>
+    <name>ecotecidos</name>
+    <description>API REST da plataforma Ecotecidos - Projeto Final +PraTi</description>
     <url/>
 
     <licenses>
