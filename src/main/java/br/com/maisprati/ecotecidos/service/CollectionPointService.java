@@ -83,8 +83,8 @@ public class CollectionPointService {
                         .state(State.valueOf(dto.getAddress().getState().trim().toUpperCase()))
                         .country(dto.getAddress().getCountry().trim().toUpperCase(Locale.ROOT))
                         .zipCode(dto.getAddress().getZipCode().trim())
-                        .latitude(dto.getLatitude())
-                        .longitude(dto.getLongitude())
+                        .latitude(dto.getAddress().getLatitude())
+                        .longitude(dto.getAddress().getLongitude())
                         .build();
 
                 CollectionPoint collectionPoint = CollectionPoint.builder()
@@ -113,6 +113,7 @@ public class CollectionPointService {
                 }
                 collectionPoint.setHasPendingUpdate(false);
                 collectionPoint.setStatus(CollectionPointStatus.PENDING); 
+                collectionPoint.setFavoriteCount(0L);
 
                 CollectionPoint saved = collectionPointRepository.save(collectionPoint);
                 if (image != null && !image.isEmpty()) {
